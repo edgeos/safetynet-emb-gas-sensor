@@ -1,0 +1,10 @@
+# ignore sym link to SDK directory
+ble-dev/nordic_sdk
+
+# output build directories
+adi-dev/iar_projects/M355_4WireImpedance_Plotter/iar/settings
+adi-dev/iar_projects/M355_4WireImpedance_Plotter/iar/Debug
+
+# python stuff
+win-dev/M355_4WireImpedance_Plotter/__pycache__
+win-dev/M355_4WireImpedance_Plotter/.vscode

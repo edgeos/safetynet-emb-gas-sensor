@@ -1,0 +1,55 @@
+import sys
+
+# def lengths
+PACKET_ST_LENGTH = 7 
+PAYLOAD_LENGTH = 32 
+CRC_END_LENGTH = 3
+PACKET_LENGTH = PACKET_ST_LENGTH+ PAYLOAD_LENGTH + CRC_END_LENGTH
+PACKET_CMD_IND = 5
+
+# measure payload def
+MEASURE_PAYLOAD_LENGTH = 12
+MEASURE_PADDING_LENGTH = PAYLOAD_LENGTH - MEASURE_PAYLOAD_LENGTH
+
+# data payload def
+DATA_PAYLOAD_LENGTH = 32
+DATA_PAYLOAD_PADDING = PAYLOAD_LENGTH - DATA_PAYLOAD_LENGTH
+
+# define bytes
+START_BYTES = bytearray([0x55,0x44,0x33,0x22,0x11])
+STOP_BYTE = bytearray([0xff])
+CMD_PING = bytearray([0x00])
+CMD_START_MEASURE = bytearray([0x01])
+CMD_STOP_MEASURE = bytearray([0x02])
+CMD_SEND_DATA = bytearray([0x03])
+CMD_ACK = bytearray([0x04])
+
+# struct defs for decoding/encoding serial buffer
+PADDING_FMT = 'x'
+ENDIAN_FMT = '<'
+HEADER_FMT = str(len(START_BYTES)) + 's' + 'B' + 'B' # X start bytes  + 1 cmd byte + 1 len byte
+PAYLOAD_FMT = str(PAYLOAD_LENGTH) + 's'
+CRC_FMT = 'H'
+END_FMT = 'B'
+PACKET_FMT = ENDIAN_FMT + HEADER_FMT + PAYLOAD_FMT + CRC_FMT + END_FMT
+
+# for decoding/encoding diff payloads
+# measure payload
+FREQ_START_FMT = 'f'
+FREQ_STEP_FMT = 'f'
+FREQ_STOP_FMT = 'f'
+MEASURE_PAYLOAD_FMT = ENDIAN_FMT + FREQ_START_FMT + FREQ_STEP_FMT + FREQ_STOP_FMT + PADDING_FMT*(MEASURE_PADDING_LENGTH)
+
+# data payload
+SEQ_NUM = 'H'
+NUM_SEGS = 'H'
+IMP_RESULT = 's'
+IMP_RESULT_LENGTH = 28
+DATA_PAYLOAD_FMT = ENDIAN_FMT + SEQ_NUM + NUM_SEGS + str(IMP_RESULT_LENGTH) + IMP_RESULT
+
+# impedance result breakdown
+FREQ = 'f'
+DFT_RESULTS = '4l'
+MAG = 'f'
+PHASE = 'f'
+IMPEDANCE_FMT = ENDIAN_FMT + FREQ + DFT_RESULTS + MAG + PHASE
