@@ -14,6 +14,7 @@ import pyqtgraph as pg
 import struct, serial, threading, serialstruct, binascii
 import time, datetime
 import csv, math
+from functools import partial
 
 
 # Uncomment below for terminal log messages
@@ -57,7 +58,6 @@ class AppWindow(QtWidgets.QDialog):
         self.connected = False
         self.save_data = False # to save CSV flag
         self.running = False
-        #self.save_data_file = f'{datetime.datetime.now():%Y%m%d_%H%M%S}' + '_ImpedanceData.csv'
         self.save_data_file = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + '_ImpedanceData.csv'
 
         # refresh com ports
@@ -99,12 +99,17 @@ class AppWindow(QtWidgets.QDialog):
         }
         for key in self.tab2_plot_handlers.keys():
             self.ui.ringBox.addItem(key) 
+        self.ui.togglePlotButton.clicked.connect(self.plotter.change_tab1_plot)
+        self.ui.toggleS11PlotButton.clicked.connect(self.plotter.change_tab3_plot)
+        self.ui.smithPlotButton.clicked.connect(partial(self.plotter.update_smith_chart,False))
+        self.ui.smithPlotWebButton.clicked.connect(partial(self.plotter.update_smith_chart,True))
 
         # start thread
         self.MUTEX_PROTECT_UART = False
         self.ser_thread = threading.Thread(target=self.read_from_serial_port)
         self.ser_thread.start()
         self.update_plots_signal.connect(self.update_plots)
+        self.update_smith = False
         self.MUTEX_PROTECT_PLOTTER = False
 
         self.serialBuffer = bytearray()
@@ -134,11 +139,16 @@ class AppWindow(QtWidgets.QDialog):
             self.ui.freqIndexSpinbox.setMaximum(len(unique_freqs)-1)
             self.update_freq_text()
         
-        
-        self.plotter.plot_real_imag_vs_freq(self.df)
-        if self.df.empty is not True:    
-            tab2_plot_function = self.tab2_plot_handlers.get(self.ui.ringBox.currentText(), None)
-            tab2_plot_function(self.df)
+        try:
+            if self.update_smith is True:
+                self.plotter.plot_tab1(self.df)
+                if self.df.empty is not True:    
+                    tab2_plot_function = self.tab2_plot_handlers.get(self.ui.ringBox.currentText(), None)
+                    tab2_plot_function(self.df)
+                    self.plotter.update_s11_plot(self.df)
+                self.update_smith = False
+        except:
+            pass
         
         self.MUTEX_PROTECT_PLOTTER = False
 
@@ -163,7 +173,6 @@ class AppWindow(QtWidgets.QDialog):
             return
 
         # update save data file 
-        #self.save_data_file = f'{datetime.datetime.now():%Y%m%d_%H%M%S}' + '_ImpedanceData.csv'
         self.save_data_file = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + '_ImpedanceData.csv'
 
         # check if we're saving data
@@ -341,7 +350,7 @@ class AppWindow(QtWidgets.QDialog):
         return
 
     def handle_measurement_data(self, payload):
-        _, _, imp_data_packed = unpack(DATA_PAYLOAD_FMT, payload) #decode
+        seq_num, num_segs, imp_data_packed = unpack(DATA_PAYLOAD_FMT, payload) #decode
 
         # update time index if it's a new measurement collect
         self.current_timestamp = time.time()
@@ -352,6 +361,10 @@ class AppWindow(QtWidgets.QDialog):
         # save to csv
         if self.save_data:
             self.save_data_to_csv(data)
+
+        # only update smith and s11 for every new complete set
+        if seq_num == num_segs:
+            self.update_smith = True
         
         # update the data in memory; signal will be sent to update plots here
         self.save_data_to_dataframe(data)
@@ -422,8 +435,7 @@ class AppWindow(QtWidgets.QDialog):
         timeout_sec = 5
         max_delay_ct = timeout_sec / delay_sec
         self.tx_success = True
-        if wait_for_ack:
-            self.ack_received = False
+        self.ack_received = False if wait_for_ack is True else True
         self.tx_packet = packet
         self.tx_ready = True
 

@@ -7,7 +7,17 @@
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
 import pyqtgraph as pg
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import (
+        FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
+import random
+from matplotlib import rcParams, pyplot as pp
+from smithplot import SmithAxes
+import smithplot as sp
 
 class MyDialog(object):
     def setupUi(self, Dialog):
@@ -120,6 +130,8 @@ class MyDialog(object):
         self.plot_tabWidget.addTab(self.tab, "")
         self.tab_2 = QtWidgets.QWidget()
         self.tab_2.setObjectName("tab_2")
+        self.tab_3 = QtWidgets.QWidget()
+        self.tab_3.setObjectName("tab_3")
         self.freqIndexSpinbox = QtWidgets.QSpinBox(self.tab_2)
         self.freqIndexSpinbox.setGeometry(QtCore.QRect(640, 40, 141, 51))
         font = QtGui.QFont()
@@ -194,6 +206,7 @@ class MyDialog(object):
         self.freqValueText.setAcceptRichText(True)
         self.freqValueText.setObjectName("freqValueText")
         self.plot_tabWidget.addTab(self.tab_2, "")
+        self.plot_tabWidget.addTab(self.tab_3, "")
         self.label_5 = QtWidgets.QLabel(Dialog)
         self.label_5.setGeometry(QtCore.QRect(440, 740, 211, 20))
         font = QtGui.QFont()
@@ -215,16 +228,86 @@ class MyDialog(object):
 
 
         # plot widgets
-        self.plot1_tab1 = pg.PlotWidget(self.tab,title='Impedance Real',labels={'left':'Real','bottom':'Frequency [Hz]'})
-        self.plot1_tab1.setGeometry(QtCore.QRect(50, 47, 630, 516))
+        pg.setConfigOption('background', 'w')
+        pg.setConfigOption('foreground', 'k')
+        self.plot1_tab1 = pg.PlotWidget(self.tab,title='Magnitude',labels={'left':'Real','bottom':'Frequency [Hz]'})
+        self.plot1_tab1.setGeometry(QtCore.QRect(50, 75, 630, 516))
         self.plot1_tab1.setObjectName("plot1_tab1")
-        self.plot2_tab1 = pg.PlotWidget(self.tab,title='Impedance Imaginary',labels={'left':'Imag','bottom':'Frequency [Hz]'})
-        self.plot2_tab1.setGeometry(QtCore.QRect(715, 47, 630, 516))
+        self.plot2_tab1 = pg.PlotWidget(self.tab,title='Phase',labels={'left':'Imag','bottom':'Frequency [Hz]'})
+        self.plot2_tab1.setGeometry(QtCore.QRect(715, 75, 630, 516))
         self.plot2_tab1.setObjectName("plot2_tab1")
 
         self.plot1_tab2 = pg.PlotWidget(self.tab_2,title='Impedance')
         self.plot1_tab2.setGeometry(QtCore.QRect(50, 107, 1300, 466))
         self.plot1_tab2.setObjectName("plot1_tab2")
+
+        # Tab 3 stuff
+        self.smithchart_tab3 = pp.figure(figsize=(5, 3))
+        pp.ion()
+        self.smithcanvas = FigureCanvas(self.smithchart_tab3)
+        layout = QtGui.QGridLayout()#QHBoxLayout()
+        layout.addWidget(self.smithcanvas,0,0,1,1)
+        sp.SmithAxes.scDefaultParams['axes.impedance'] = 100
+        self.smith_ax = self.smithchart_tab3.add_subplot(111, projection='smith')
+        self.z0_Label=QLabel("Z0 [Ohms] =  ")
+        self.z0_Label.setObjectName("z0_Label")
+        self.z0_Edit = QtWidgets.QLineEdit("100")
+        self.z0_Edit.setObjectName("z0_Edit")
+        layout.addWidget(self.z0_Label,1,0,1,1,Qt.AlignRight)
+        layout.addWidget(self.z0_Edit,1,1,1,1,Qt.AlignLeft)
+        layout.setHorizontalSpacing(1)
+        self.smithchart_tab3.tight_layout()
+        layout.setColumnStretch(0,2)
+        self.plot2_tab3 = pg.PlotWidget(title='S11',labels={'left':'S11 [dB]','bottom':'Frequency [Hz]'})
+        self.plot2_tab3.setGeometry(QtCore.QRect(715, 75, 630, 516))
+        self.plot2_tab3.setObjectName("plot2_tab3")
+        layout.addWidget(self.plot2_tab3,0,1,1,1)
+        self.smithPlotButton = QtWidgets.QPushButton("Update Smith Chart")
+        font = QtGui.QFont()
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+        self.smithPlotButton.setFont(font)
+        self.smithPlotButton.setCheckable(False)
+        self.smithPlotButton.setFlat(False)
+        self.smithPlotButton.setObjectName("smithPlotButton")
+        layout.addWidget(self.smithPlotButton,1,0,1,1,Qt.AlignCenter)
+        self.smithPlotWebButton = QtWidgets.QPushButton("Save Plot")
+        font = QtGui.QFont()
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+        self.smithPlotWebButton.setFont(font)
+        self.smithPlotWebButton.setCheckable(False)
+        self.smithPlotWebButton.setFlat(False)
+        self.smithPlotWebButton.setObjectName("smithPlotButton")
+        layout.addWidget(self.smithPlotWebButton,1,0,1,1,Qt.AlignLeft)
+        self.toggleS11PlotButton = QtWidgets.QPushButton("Toggle Z'' vs Z' On")
+        font = QtGui.QFont()
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+        self.toggleS11PlotButton.setFont(font)
+        self.toggleS11PlotButton.setCheckable(False)
+        self.toggleS11PlotButton.setFlat(False)
+        self.toggleS11PlotButton.setObjectName("toggleS11PlotButton")
+        layout.addWidget(self.toggleS11PlotButton,1,1,1,1,Qt.AlignRight)
+        self.tab_3.setLayout(layout)
+
+
+        self.togglePlotButton = QtWidgets.QPushButton(self.tab)
+        self.togglePlotButton.setGeometry(QtCore.QRect(585, 10, 220, 51))
+        font = QtGui.QFont()
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+        self.togglePlotButton.setFont(font)
+        self.togglePlotButton.setCheckable(False)
+        self.togglePlotButton.setDefault(True)
+        self.togglePlotButton.setFlat(False)
+        self.togglePlotButton.setObjectName("connectButton")
+
+
 
         self.retranslateUi(Dialog)
         self.plot_tabWidget.setCurrentIndex(0)
@@ -283,6 +366,8 @@ class MyDialog(object):
 "</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:14pt; font-weight:400; font-style:normal;\">\n"
 "<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">10</p></body></html>"))
         self.plot_tabWidget.setTabText(self.plot_tabWidget.indexOf(self.tab_2), _translate("Dialog", "Run Chart"))
+        self.plot_tabWidget.setTabText(self.plot_tabWidget.indexOf(self.tab_3), _translate("Dialog", "Smith Chart"))
         self.label_5.setText(_translate("Dialog", "Console Log"))
         self.label_6.setText(_translate("Dialog", "ADuCM355 Eval Board Plotting Tool"))
+        self.togglePlotButton.setText(_translate("Dialog", "Toggle Mag/Ph Off"))
 
