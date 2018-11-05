@@ -10,3 +10,4 @@ adi-dev/iar_projects/M355_Biased_EIS_Plotter/iar/Debug
 # python stuff
 win-dev/M355_4WireImpedance_Plotter/__pycache__
 win-dev/M355_4WireImpedance_Plotter/.vscode
+win-dev/.vscode
