@@ -241,8 +241,8 @@ void ImpInit()
    NVIC_EnableIRQ(AFE_ADC_IRQn);
    /******setup exitation loop and TIA********/
    AfeHpTiaCon(HPTIABIAS_1V1); /*Normal power mode, 1.1V biased HP TIA*/
-   ctia = BITM_HPTIA_CTIA_OPEN;//BITM_HPTIA_CTIA_2PF;
-   AfeHpTiaSeCfg(HPTIASE_RTIA_200,ctia,0);   /*rtia,ctia,no diosel*/ //HPTIASE_RTIA_10K
+   ctia = BITM_HPTIA_CTIA_2PF;//BITM_HPTIA_CTIA_2PF;
+   AfeHpTiaSeCfg(HPTIASE_RTIA_10K,ctia,0);   /*rtia,ctia,no diosel*/ //HPTIASE_RTIA_10K
    /*switch to RCAL, loop exitation before power up*/
    AfeSwitchDPNT(SWID_DR0_RCAL0,SWID_PR0_RCAL0,SWID_NR1_RCAL1,SWID_TR1_RCAL1|SWID_T9);
    /*********Initialize ADC and DFT********/

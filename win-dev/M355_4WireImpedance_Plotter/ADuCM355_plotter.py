@@ -18,6 +18,8 @@ class ADuCM355_Plotter:
         self.tab1_plot_imag_vs_freq = False
         self.tab3_plot_s11 = True
         self.z = list()
+        self.real_z = list()
+        self.imag_z = list()
 
     def change_tab1_plot(self):
         if self.tab1_plot_imag_vs_freq is True:
@@ -72,29 +74,89 @@ class ADuCM355_Plotter:
         # plot2 on page 1
         self.plot_fn(self.ui.plot2_tab1, xdata, ydata2, t2, 'Time')
 
+    def update_pass_fail_text(self,df):
+        N = self.ui.avgCountSpinbox_tab4.value()
+        T = self.ui.avgTimeSpinbox_tab4.value()
+        
+        # check time between last 2 measurements on a frequency, see if it will meet the N measurements in T time criteria
+        self.unique_freqs = df['FREQ_HZ'].unique()
+        latest_data_inds = df.loc[df['FREQ_HZ']==self.unique_freqs[-1]].index.values
+        if latest_data_inds.size <= 1:
+            self.ui.passLabel.setStyleSheet("color: rgb(255,0,0)")
+            self.ui.passLabel.setText('FAIL')
+        else:
+            latest_data_inds = latest_data_inds[-2:]
+            t_per = df['UTC_TIME'][latest_data_inds[-1]] - df['UTC_TIME'][latest_data_inds[0]]
+            t_tot = N*t_per
+            if t_tot <= T:
+                self.ui.passLabel.setStyleSheet("color: rgb(0,255,0)")
+                self.ui.passLabel.setText('PASS')
+            else:
+                self.ui.passLabel.setStyleSheet("color: rgb(255,0,0)")
+                self.ui.passLabel.setText('FAIL')
+
+    def get_real_z_by_freq(self, df):
+        # get phase and mag
+        mag = df['MAG'][self.row_inds].values.tolist()
+        phase = df['PHASE'][self.row_inds].values.tolist()
+
+        # convert to real/imag impedance for smith chart
+        self.real_z = np.asarray([m*math.cos(math.radians(ph)) for m,ph in zip(mag,phase)])
+        self.imag_z = np.asarray([m*math.sin(math.radians(ph)) for m,ph in zip(mag,phase)])
+
+    def plot_tab4(self, df):
+        self.update_pass_fail_text(df)
+        self.update_plot_inds(df, self.ui.freq_tab4_plot1_Spinbox_tab4.value())
+        N = self.ui.avgCountSpinbox_tab4.value()
+        N = N if len(self.row_inds) >= N else len(self.row_inds)
+
+        self.get_real_z_by_freq(df)
+        ydata = self.running_mean(self.real_z,N).tolist()
+        self.x_time = self.x_time[-len(ydata):]
+        self.plot_fn(self.ui.plot1_tab4, self.x_time, ydata, "Z' [Ohms]", 'Time [sec]')
+
+        self.update_plot_inds(df, self.ui.freq_tab4_plot2_Spinbox_tab4.value())
+        self.get_real_z_by_freq(df)
+        ydata = self.running_mean(self.real_z,N).tolist()
+        self.x_time = self.x_time[-len(ydata):]
+        self.plot_fn(self.ui.plot2_tab4, self.x_time, ydata, "Z' [Ohms]", 'Time [sec]')
+
+        self.update_plot_inds(df, self.ui.freq_tab4_plot3_Spinbox_tab4.value())
+        self.get_real_z_by_freq(df)
+        ydata = self.running_mean(self.real_z,N).tolist()
+        self.x_time = self.x_time[-len(ydata):]
+        self.plot_fn(self.ui.plot3_tab4, self.x_time, ydata, "Z' [Ohms]", 'Time [sec]')
+
+        self.update_plot_inds(df, self.ui.freq_tab4_plot4_Spinbox_tab4.value())
+        self.get_real_z_by_freq(df)
+        ydata = self.running_mean(self.real_z,N).tolist()
+        self.x_time = self.x_time[-len(ydata):]
+        self.plot_fn(self.ui.plot4_tab4, self.x_time, ydata, "Z' [Ohms]", 'Time [sec]')
+
     def running_mean(self, x, N):
         cumsum = np.cumsum(np.insert(x, 0, 0)) 
         return (cumsum[N:] - cumsum[:-N]) / float(N)
 
-    def update_plot_inds(self, df):
-        freq_ind = self.ui.freqIndexSpinbox.value()
+    def update_plot_inds(self, df, freq_ind):
+        self.unique_freqs = df['FREQ_HZ'].unique()
+        #latest_data_inds = [df.loc[df['FREQ_HZ']==val].index.values[-1] for val in self.unique_freqs]
         self.row_inds = df.index[df['FREQ_HZ'] == self.unique_freqs[freq_ind]].tolist()
         self.x_time = df['UTC_TIME'][self.row_inds].values.tolist()
         x0 = self.x_time[0]
         self.x_time[:] = [(x - x0  + 1) for x in self.x_time]
 
     def plot_real_vs_time(self, df):
-        self.update_plot_inds(df)
+        self.update_plot_inds(df, self.ui.freqIndexSpinbox.value())
         ydata = df['RX_REAL'][self.row_inds].values.tolist()
         self.plot_fn(self.ui.plot1_tab2, self.x_time, ydata, 'Real', 'Time')
     
     def plot_imag_vs_time(self, df):
-        self.update_plot_inds(df)
+        self.update_plot_inds(df, self.ui.freqIndexSpinbox.value())
         ydata = df['RX_IMG'][self.row_inds].values.tolist()
         self.plot_fn(self.ui.plot1_tab2, self.x_time, ydata, 'Imag', 'Time')
 
     def plot_avg_real_vs_time(self, df):
-        self.update_plot_inds(df)
+        self.update_plot_inds(df, self.ui.freqIndexSpinbox.value())
         N = self.ui.avgCountSpinbox.value()
         N = N if len(self.row_inds) >= N else len(self.row_inds)
         ydata = self.running_mean(df['RX_REAL'][self.row_inds].values,N).tolist()
@@ -102,7 +164,7 @@ class ADuCM355_Plotter:
         self.plot_fn(self.ui.plot1_tab2, self.x_time, ydata, 'Avg. Real', 'Time')
 
     def plot_avg_imag_vs_time(self, df):
-        self.update_plot_inds(df)
+        self.update_plot_inds(df, self.ui.freqIndexSpinbox.value())
         N = self.ui.avgCountSpinbox.value()
         N = N if len(self.row_inds) >= N else len(self.row_inds)
         ydata = self.running_mean(df['RX_IMG'][self.row_inds].values,N).tolist()
@@ -110,12 +172,12 @@ class ADuCM355_Plotter:
         self.plot_fn(self.ui.plot1_tab2, self.x_time, ydata, 'Avg. Imag', 'Time')
 
     def plot_mag_vs_time(self, df):
-        self.update_plot_inds(df)
+        self.update_plot_inds(df, self.ui.freqIndexSpinbox.value())
         ydata = df['MAG'][self.row_inds].values.tolist()
         self.plot_fn(self.ui.plot1_tab2, self.x_time, ydata, 'Magnitude', 'Time')
     
     def plot_phase_vs_time(self, df):
-        self.update_plot_inds(df)
+        self.update_plot_inds(df, self.ui.freqIndexSpinbox.value())
         ydata = df['PHASE'][self.row_inds].values.tolist()
         self.plot_fn(self.ui.plot1_tab2, self.x_time, ydata, 'Phase', 'Time')
     
@@ -149,6 +211,8 @@ class ADuCM355_Plotter:
 
         # don't need to normalize, convert to list
         self.z = z.tolist()
+        self.z_r = real_z.tolist()
+        self.z_i = imag_z.tolist()
 
         # s11 plot
         ph = self.ui.plot2_tab3.getPlotItem()

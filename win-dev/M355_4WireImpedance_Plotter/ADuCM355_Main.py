@@ -76,8 +76,14 @@ class AppWindow(QtWidgets.QDialog):
         self.ui.stopRunButton.setEnabled(False)
         self.ui.freqIndexSpinbox.setMinimum(0)
         self.ui.freqIndexSpinbox.setMaximum(0)
-        self.ui.freqIndexSpinbox.valueChanged.connect(self.update_freq_text)
+        self.ui.freqIndexSpinbox.valueChanged.connect(partial(self.update_freq_text,False))
+        self.ui.freq_tab4_plot1_Spinbox_tab4.valueChanged.connect(partial(self.update_freq_text,False))
+        self.ui.freq_tab4_plot2_Spinbox_tab4.valueChanged.connect(partial(self.update_freq_text,False))
+        self.ui.freq_tab4_plot3_Spinbox_tab4.valueChanged.connect(partial(self.update_freq_text,False))
+        self.ui.freq_tab4_plot4_Spinbox_tab4.valueChanged.connect(partial(self.update_freq_text,False))
         self.ui.avgCountSpinbox.setMinimum(1)
+        self.ui.avgCountSpinbox_tab4.setMinimum(1)
+        self.ui.avgTimeSpinbox_tab4.setMinimum(1)
 
         # register packet handlers
         self.packet_handlers = {
@@ -117,39 +123,68 @@ class AppWindow(QtWidgets.QDialog):
 
         # for data
         self.current_timestamp = None
-        self.df_cols = list(['UTC_TIME', 'FREQ_HZ', 'RCAL_REAL', 'RCAL_IMG', 'RX_REAL', 'RX_IMG', 'MAG', 'PHASE'])
+        self.df_cols = list(['UTC_TIME', 'FREQ_HZ', 'RCAL_REAL', 'RCAL_IMG', 'RX_REAL', 'RX_IMG', 'MAG', 'PHASE', "Z'", 'Z"'])
         self.df = pd.DataFrame(columns=self.df_cols,dtype=np.float32)
         self.unique_freqs = list()
 
         self.show()
 
-    def update_freq_text(self):
-        freq_ind = self.ui.freqIndexSpinbox.value()
-        self.ui.freqValueText.setText(str(self.unique_freqs[freq_ind]/1000))
+    def update_freq_text(self, reset):
+        if reset is True:    
+            self.ui.freqIndexSpinbox.setValue(0)
+            self.ui.freqValueText.setText(str(0))
+            self.ui.freq_tab4_plot1_Spinbox_tab4.setValue(0)
+            self.ui.label_30.setText(str(0))
+            freq_ind = self.ui.freq_tab4_plot2_Spinbox_tab4.setValue(0)
+            self.ui.label_31.setText(str(0))
+            freq_ind = self.ui.freq_tab4_plot3_Spinbox_tab4.setValue(0)
+            self.ui.label_32.setText(str(0))
+            freq_ind = self.ui.freq_tab4_plot4_Spinbox_tab4.setValue(0)
+            self.ui.label_33.setText(str(0))
+        else:
+            freq_ind = self.ui.freqIndexSpinbox.value()
+            self.ui.freqValueText.setText(str(self.unique_freqs[freq_ind]/1000))
+            freq_ind = self.ui.freq_tab4_plot1_Spinbox_tab4.value()
+            self.ui.label_30.setText(str(self.unique_freqs[freq_ind]/1000))
+            freq_ind = self.ui.freq_tab4_plot2_Spinbox_tab4.value()
+            self.ui.label_31.setText(str(self.unique_freqs[freq_ind]/1000))
+            freq_ind = self.ui.freq_tab4_plot3_Spinbox_tab4.value()
+            self.ui.label_32.setText(str(self.unique_freqs[freq_ind]/1000))
+            freq_ind = self.ui.freq_tab4_plot4_Spinbox_tab4.value()
+            self.ui.label_33.setText(str(self.unique_freqs[freq_ind]/1000))
 
     def update_plots(self):
         # prevent the signal from being emitted too quickly
         self.MUTEX_PROTECT_PLOTTER = True
-        
-        # get unique freqs from dataframe
-        unique_freqs = self.df['FREQ_HZ'].unique().tolist()
-        freq_matches = set(unique_freqs).intersection(self.unique_freqs)
-        if len(freq_matches) != len(unique_freqs):
-            self.unique_freqs = unique_freqs
-            self.ui.freqIndexSpinbox.setMaximum(len(unique_freqs)-1)
-            self.update_freq_text()
-        
         try:
+            # get unique freqs from dataframe
+            unique_freqs = self.df['FREQ_HZ'].unique().tolist()
+            freq_matches = set(unique_freqs).intersection(self.unique_freqs)
+            if len(freq_matches) != len(unique_freqs):
+                self.unique_freqs = unique_freqs
+                self.ui.freqIndexSpinbox.setMaximum(len(unique_freqs)-1)
+                self.ui.freq_tab4_plot1_Spinbox_tab4.setMaximum(len(unique_freqs)-1)
+                self.ui.freq_tab4_plot2_Spinbox_tab4.setMaximum(len(unique_freqs)-1)
+                self.ui.freq_tab4_plot3_Spinbox_tab4.setMaximum(len(unique_freqs)-1)
+                self.ui.freq_tab4_plot4_Spinbox_tab4.setMaximum(len(unique_freqs)-1)
+                self.update_freq_text(False)
+
             if self.update_smith is True:
-                self.plotter.plot_tab1(self.df)
-                if self.df.empty is not True:    
+                # only update the currently visible plot to save CPU
+                current_tab = self.ui.plot_tabWidget.currentIndex()
+                if current_tab == 0:
+                    self.plotter.plot_tab1(self.df)
+                elif current_tab == 1:   
                     tab2_plot_function = self.tab2_plot_handlers.get(self.ui.ringBox.currentText(), None)
                     tab2_plot_function(self.df)
+                elif current_tab == 2:
                     self.plotter.update_s11_plot(self.df)
+                elif current_tab == 3:
+                    self.plotter.plot_tab4(self.df)
                 self.update_smith = False
         except:
+            self.update_smith = False
             pass
-        
         self.MUTEX_PROTECT_PLOTTER = False
 
     def save_data_to_csv(self, data):
@@ -219,6 +254,7 @@ class AppWindow(QtWidgets.QDialog):
             
             self.MUTEX_PROTECT_PLOTTER = True
             self.df = pd.DataFrame(columns=self.df_cols)
+            self.update_freq_text(True)
             self.MUTEX_PROTECT_PLOTTER = False
         else:      
             logging.error('No ACK received to Stop Measurement command!')
@@ -358,6 +394,17 @@ class AppWindow(QtWidgets.QDialog):
         # add timestamp
         data = list([self.current_timestamp]) + list(unpack(IMPEDANCE_FMT, imp_data_packed)) # utctime, freq, dft_results[4], mag, phase
 
+        # utctime, freq, dft_results[4], mag, phase
+        # get phase and mag
+        mag = data[6]
+        phase = data[7]
+
+        # convert to real/imag impedance for smith chart
+        real_z = mag*math.cos(math.radians(phase))
+        imag_z = mag*math.sin(math.radians(phase))
+        data.append(real_z)
+        data.append(imag_z)
+
         # save to csv
         if self.save_data:
             self.save_data_to_csv(data)
@@ -450,5 +497,6 @@ class AppWindow(QtWidgets.QDialog):
 app = QtWidgets.QApplication(sys.argv)
 w = AppWindow()
 w.setFixedSize(w.size())
+#w.showMaximized()
 w.show()
 sys.exit(app.exec_())
