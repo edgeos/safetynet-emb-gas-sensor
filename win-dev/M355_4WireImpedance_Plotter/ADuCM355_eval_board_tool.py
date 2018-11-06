@@ -362,6 +362,15 @@ class MyDialog(object):
         self.freq_tab4_plot4_Spinbox_tab4.setObjectName("freq_tab4_plot4_Spinbox_tab4")
         self.freq_tab4_plot4_Spinbox_tab4.setFont(font)
 
+        self.zRecordButton = QtWidgets.QPushButton("Turn On Record")
+        font = QtGui.QFont()
+        font.setPointSize(14)
+        font.setBold(True)
+        self.zRecordButton.setCheckable(False)
+        self.zRecordButton.setFlat(False)
+        self.zRecordButton.setObjectName("zRecordButton")
+        
+
         layout = QtGui.QGridLayout()
         layout.addWidget(self.plot1_tab4,1,1,1,1)
         layout.addWidget(self.plot2_tab4,1,2,1,1)
@@ -380,6 +389,7 @@ class MyDialog(object):
         layout.addWidget(self.label_31,2,2,1,1,Qt.AlignRight)
         layout.addWidget(self.label_32,2,3,1,1,Qt.AlignRight)
         layout.addWidget(self.label_33,2,4,1,1,Qt.AlignRight)
+        layout.addWidget(self.zRecordButton,0,4,1,1,Qt.AlignRight)
         self.tab_4.setLayout(layout)
 
 

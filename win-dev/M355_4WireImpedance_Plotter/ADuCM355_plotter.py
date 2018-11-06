@@ -198,7 +198,7 @@ class ADuCM355_Plotter:
 
         # convert to real/imag impedance for smith chart
         real_z = np.asarray([m*math.cos(math.radians(ph)) for m,ph in zip(mag,phase)])
-        imag_z = np.asarray([m*math.sin(math.radians(ph)) for m,ph in zip(mag,phase)])
+        imag_z = -np.asarray([m*math.sin(math.radians(ph)) for m,ph in zip(mag,phase)])
         z = real_z + imag_z * 1j
 
         # update impedance Z0

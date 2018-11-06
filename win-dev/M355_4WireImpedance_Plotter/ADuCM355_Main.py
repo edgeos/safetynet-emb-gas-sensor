@@ -84,6 +84,8 @@ class AppWindow(QtWidgets.QDialog):
         self.ui.avgCountSpinbox.setMinimum(1)
         self.ui.avgCountSpinbox_tab4.setMinimum(1)
         self.ui.avgTimeSpinbox_tab4.setMinimum(1)
+        self.ui.zRecordButton.clicked.connect(partial(self.toggle_z_record, False))
+        self.zRecordOn = False
 
         # register packet handlers
         self.packet_handlers = {
@@ -123,7 +125,7 @@ class AppWindow(QtWidgets.QDialog):
 
         # for data
         self.current_timestamp = None
-        self.df_cols = list(['UTC_TIME', 'FREQ_HZ', 'RCAL_REAL', 'RCAL_IMG', 'RX_REAL', 'RX_IMG', 'MAG', 'PHASE', "Z'", 'Z"'])
+        self.df_cols = list(['UTC_TIME', 'FREQ_HZ', 'RCAL_REAL', 'RCAL_IMG', 'RX_REAL', 'RX_IMG', 'MAG', 'PHASE', 'Z_R', 'Z_I'])
         self.df = pd.DataFrame(columns=self.df_cols,dtype=np.float32)
         self.unique_freqs = list()
 
@@ -187,6 +189,78 @@ class AppWindow(QtWidgets.QDialog):
             pass
         self.MUTEX_PROTECT_PLOTTER = False
 
+    def toggle_z_record(self, force_record_off):
+        if force_record_off is True:
+            if self.zRecordOn is False:
+                return
+
+        # toggle
+        if self.zRecordOn is False:
+            self.ui.avgCountSpinbox_tab4.setEnabled(False)
+            self.ui.avgTimeSpinbox_tab4.setEnabled(False)
+            self.ui.zRecordButton.setText('Turn Off Record')
+
+            # grab measurement parameters
+            self.avgMeasurementNum = self.ui.avgCountSpinbox_tab4.value()
+            self.avgMeasurementCount = 0
+            time_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.save_zreal_data_file = time_str + '_z_real.re'
+            self.save_zimag_data_file = time_str + '_z_imag.im'
+            
+            # start recording to text files
+            unique_freqs = self.df['FREQ_HZ'].unique()
+            unique_freqs = unique_freqs.tolist()
+            with open(self.save_zreal_data_file,'a',newline='') as f:
+                for freq in unique_freqs:
+                    f.write(str(freq) + '\t')
+                f.write('\n')
+            with open(self.save_zimag_data_file,'a',newline='') as f:
+                for freq in unique_freqs:
+                    f.write(str(freq) + '\t')
+                f.write('\n')
+
+            logging.info('Logging all Z_real data to file: %s', self.save_zreal_data_file)
+            logging.info('Logging all Z_imag data to file: %s', self.save_zimag_data_file)
+
+            self.zRecordOn = True
+        else:
+            self.ui.avgCountSpinbox_tab4.setEnabled(True)
+            self.ui.avgTimeSpinbox_tab4.setEnabled(True)
+            self.ui.zRecordButton.setText('Turn On Record')
+
+            logging.info('Stopped logging all Z_real data to file')
+            logging.info('Stopped logging all Z_imag data to file')
+
+            self.zRecordOn = False
+
+    def save_z_data_to_tab_delimited_file(self):
+        self.avgMeasurementCount = self.avgMeasurementCount + 1
+        if self.avgMeasurementCount == self.avgMeasurementNum:
+            # calculate avg vals for each unique freq for last Num measurements
+            unique_freqs = self.df['FREQ_HZ'].unique()
+            avg_z_r = np.zeros(shape=(1,max(unique_freqs.shape)))
+            avg_z_i = np.zeros(shape=(1,max(unique_freqs.shape)))
+            for idx, f in enumerate(unique_freqs):
+                all_rows = self.df.loc[self.df['FREQ_HZ']==f].index.values
+                last_N_rows = all_rows[-self.avgMeasurementNum:].tolist()
+                avg_z_r[0][idx] = np.mean(self.df['Z_R'][last_N_rows])
+                avg_z_i[0][idx] = np.mean(self.df['Z_I'][last_N_rows])
+            
+            # write to txt files
+            with open(self.save_zreal_data_file,'a',newline='') as f:
+                for i, z_r in np.ndenumerate(avg_z_r):
+                    f.write(str(z_r) + '\t')
+                f.write('\n')
+
+            with open(self.save_zimag_data_file,'a',newline='') as f:
+                for i, z_i in np.ndenumerate(avg_z_i):
+                    f.write(str(z_i) + '\t')
+                f.write('\n')
+
+            # reset count
+            self.avgMeasurementCount = 0
+
+
     def save_data_to_csv(self, data):
         with open(self.save_data_file,'a',newline='') as f:
             writer = csv.writer(f) 
@@ -198,6 +272,10 @@ class AppWindow(QtWidgets.QDialog):
             time.sleep(0.00001)
 
         self.df.loc[len(self.df.index)] = data
+
+        if self.update_smith is True:
+            if self.zRecordOn is True:
+                self.save_z_data_to_tab_delimited_file()
         
         # send signal when plotter is available
         self.update_plots_signal.emit()
@@ -241,7 +319,7 @@ class AppWindow(QtWidgets.QDialog):
         self.ui.checkBox.setDisabled(False)
         self.running = False
 
-        # start collecting data
+        # stop collecting data
         self.send_stop_measure()
         if self.tx_success is True:
             logging.info('Stopped continuous measurement...')
@@ -258,6 +336,9 @@ class AppWindow(QtWidgets.QDialog):
             self.MUTEX_PROTECT_PLOTTER = False
         else:      
             logging.error('No ACK received to Stop Measurement command!')
+        
+        # stop z recording
+        self.toggle_z_record(True)
 
     def refresh_com_ports(self):
         # clear current ports
@@ -401,7 +482,7 @@ class AppWindow(QtWidgets.QDialog):
 
         # convert to real/imag impedance for smith chart
         real_z = mag*math.cos(math.radians(phase))
-        imag_z = mag*math.sin(math.radians(phase))
+        imag_z = -mag*math.sin(math.radians(phase)) # invert sign per Rad's request
         data.append(real_z)
         data.append(imag_z)
 
