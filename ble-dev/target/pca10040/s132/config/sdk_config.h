@@ -452,7 +452,7 @@
 // <e> BLE_NUS_ENABLED - ble_nus - Nordic UART Service
 //==========================================================
 #ifndef BLE_NUS_ENABLED
-#define BLE_NUS_ENABLED 1
+#define BLE_NUS_ENABLED 0
 #endif
 // <e> BLE_NUS_CONFIG_LOG_ENABLED - Enables logging in the module.
 //==========================================================
@@ -2601,21 +2601,21 @@
  
 
 #ifndef NRFX_PWM1_ENABLED
-#define NRFX_PWM1_ENABLED 1
+#define NRFX_PWM1_ENABLED 0
 #endif
 
 // <q> NRFX_PWM2_ENABLED  - Enable PWM2 instance
  
 
 #ifndef NRFX_PWM2_ENABLED
-#define NRFX_PWM2_ENABLED 1
+#define NRFX_PWM2_ENABLED 0
 #endif
 
 // <q> NRFX_PWM3_ENABLED  - Enable PWM3 instance
  
 
 #ifndef NRFX_PWM3_ENABLED
-#define NRFX_PWM3_ENABLED 1
+#define NRFX_PWM3_ENABLED 0
 #endif
 
 // <o> NRFX_PWM_DEFAULT_CONFIG_OUT0_PIN - Out0 pin  <0-31> 
@@ -4860,14 +4860,14 @@
  
 
 #ifndef PWM2_ENABLED
-#define PWM2_ENABLED 1
+#define PWM2_ENABLED 0
 #endif
 
 // <q> PWM3_ENABLED  - Enable PWM3 instance
  
 
 #ifndef PWM3_ENABLED
-#define PWM3_ENABLED 1
+#define PWM3_ENABLED 0
 #endif
 
 // </e>
@@ -7133,7 +7133,7 @@
 // <e> NRF_QUEUE_ENABLED - nrf_queue - Queue module
 //==========================================================
 #ifndef NRF_QUEUE_ENABLED
-#define NRF_QUEUE_ENABLED 0
+#define NRF_QUEUE_ENABLED 1
 #endif
 // <q> NRF_QUEUE_CLI_CMDS  - Enable CLI commands specific to the module
  
@@ -7412,6 +7412,11 @@
 #endif
 
 // </e>
+
+// <q> NRF_SERIAL_ENABLED  - nrf_serial - Serial port interface
+#ifndef NRF_SERIAL_ENABLED
+#define NRF_SERIAL_ENABLED 1
+#endif
 
 // <e> NRF_LOG_BACKEND_UART_ENABLED - nrf_log_backend_uart - Log UART backend
 //==========================================================
@@ -12341,7 +12346,7 @@
 
 // <o> NRF_SDH_BLE_GATT_MAX_MTU_SIZE - Static maximum MTU size. 
 #ifndef NRF_SDH_BLE_GATT_MAX_MTU_SIZE
-#define NRF_SDH_BLE_GATT_MAX_MTU_SIZE 247
+#define NRF_SDH_BLE_GATT_MAX_MTU_SIZE 30
 #endif
 
 // <o> NRF_SDH_BLE_GATTS_ATTR_TAB_SIZE - Attribute Table size in bytes. The size must be a multiple of 4. 
@@ -13045,4 +13050,3 @@
 
 // <<< end of configuration section >>>
 #endif //SDK_CONFIG_H
-

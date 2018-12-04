@@ -37,8 +37,8 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef EXT_DEVICE_CONTROLLER_H__
-#define EXT_DEVICE_CONTROLLER_H__
+#ifndef ADUCM355_CONTROLLER_H__
+#define ADUCM355_CONTROLLER_H__
 
 #include <stdint.h>
 #include "nrf.h"
@@ -47,24 +47,51 @@
 extern "C" {
 #endif
 
+#pragma pack(1) 
+
+/**@brief Gas Sensor State */
 typedef enum
 {
-    BME280   = 1 << 0,
-    M24M02   = 1 << 1
-} ext_device_type_t;
+    IDLE,             // aducm355 in sleep state
+    PRIMING,          // aducm355 in sleep state, heaters turned on
+    PRIMED,           // aducm355 in idle state, heaters in ready state
+    MEASURING,        // aducm355 in measure state, heaters still on
+    MEASUREMENT_DONE  // aducm355 in idle state, heaters off, algorithms
+} gas_sensing_state_t;
 
-/**@brief Initialize External Device Interfaces
+/**@brief Gas Sensor Types */
+typedef enum
+{
+    CO2 = 1,            
+    CO  = 2             
+} gas_sensor_t;
+
+typedef struct
+{ 
+   gas_sensor_t gas_sensor;
+   float gas_ppm;
+   float freq;
+   float Z_re;
+   float Z_im;
+} gas_sensor_results_t;
+
+/**@brief Initialize ADuCM355 Uart Interface
  *
  */
-void ext_device_init(ext_device_type_t use_sensors);
+uint32_t init_aducm355_iface(void);
 
-/**@brief Initialize External Device Interfaces
- *
- */
-int8_t get_sensor_data(ext_device_type_t get_sensor);
+uint32_t start_aducm355_measurement_seq(gas_sensor_t gas_sensor);
+
+uint32_t continue_aducm355_measurement_seq(gas_sensor_results_t *gas_results, bool * measurement_done);
+
+uint32_t stop_aducm355_measurement_seq(void);
+
+void check_gas_sensing_state(gas_sensing_state_t *buf);
+
+void check_aducm355_rx_buffer(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* EXT_DEVICE_CONTROLLER_H__ */
+#endif /* ADUCM355_CONTROLLER_H__ */

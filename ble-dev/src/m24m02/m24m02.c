@@ -42,8 +42,8 @@ terms block and devices is used interchangeably
 
 // enable pins
 #ifndef M24M02_WC
-#define M24M02_WC               NRF_GPIO_PIN_MAP(0,26)    // SCL signal pin 
-#define M24M02_E2               NRF_GPIO_PIN_MAP(0,26)    // SCL signal pin
+#define M24M02_WC               NRF_GPIO_PIN_MAP(0,10)    // SCL signal pin 
+#define M24M02_E2               NRF_GPIO_PIN_MAP(0,9)    // SCL signal pin
 #endif
 #define pointer_address         0xFFF5  //on AE device
 
@@ -53,6 +53,15 @@ static struct m24m02_dev *dev;
 bool i2c_eeprom_init(struct m24m02_dev *dev_init) 
 {
     dev = dev_init;
+    if(!nrf_drv_gpiote_is_init())
+    {
+        APP_ERROR_CHECK(nrf_drv_gpiote_init());
+    }
+    nrf_drv_gpiote_out_config_t out_config = GPIOTE_CONFIG_OUT_SIMPLE(true); // false = init low = WAKEUP
+    APP_ERROR_CHECK(nrf_drv_gpiote_out_init(M24M02_WC, &out_config));
+    APP_ERROR_CHECK(nrf_drv_gpiote_out_init(M24M02_E2, &out_config));
+   
+    nrf_drv_gpiote_out_set(M24M02_WC);
     nrf_drv_gpiote_out_set(M24M02_E2);
     nrf_delay_ms(1);
     return true;
@@ -167,7 +176,7 @@ bool i2c_eeprom_read(uint32_t address, uint8_t* data, uint32_t length)
     {
         uint8_t dev_offset = start_byte / BLOCK_MAX;
         uint8_t dev_id     = (MEM_BASE_ADD | DEV_REVERSE_LOOKUP[dev_offset]);
-        success = i2c_eeprom_read_buffer(dev_id, (uint16_t)(start_byte % BLOCK_SIZE), (uint8_t*)&(data[start_byte - address]), next_device_start - start_byte);
+        success = i2c_eeprom_read_buffer(&dev_id, (uint16_t)(start_byte % BLOCK_SIZE), (uint8_t*)&(data[start_byte - address]), next_device_start - start_byte);
 
         curr_device_start = next_device_start;
         next_device_start = curr_device_start + BLOCK_SIZE;
@@ -180,16 +189,16 @@ bool i2c_eeprom_read(uint32_t address, uint8_t* data, uint32_t length)
   
     uint8_t dev_offset = start_byte / BLOCK_SIZE;
     uint8_t dev_id     = MEM_BASE_ADD | DEV_REVERSE_LOOKUP[dev_offset];
-    return i2c_eeprom_read_buffer(dev_id, (uint16_t)(start_byte % BLOCK_SIZE), (uint8_t*)&(data[start_byte - address]), (uint16_t)(end_byte - start_byte));
+    return i2c_eeprom_read_buffer(&dev_id, (uint16_t)(start_byte % BLOCK_SIZE), (uint8_t*)&(data[start_byte - address]), (uint16_t)(end_byte - start_byte));
 }
 
-bool i2c_eeprom_read_buffer(uint8_t dev_id, uint16_t address, uint8_t *buffer, uint16_t length) 
+bool i2c_eeprom_read_buffer(uint8_t *dev_id, uint16_t address, uint8_t *buffer, uint16_t length) 
 {
     bool success;
 
     // write protect
     nrf_drv_gpiote_out_set(M24M02_WC); 
-    nrf_delay_ms(5);
+    //nrf_delay_ms(5);
     
     uint8_t add_buffer[2];
     add_buffer[0]=(uint8_t)((address >> 8) &0xFF);
@@ -201,12 +210,12 @@ bool i2c_eeprom_read_buffer(uint8_t dev_id, uint16_t address, uint8_t *buffer, u
     return (err_code == 0) ? true:false;	
 }
 
-uint32_t eeprom_find_add_pointer(void)
+uint32_t eeprom_read_add_pointer(void)
 {
     uint8_t dev_id = MEM_BASE_ADD | DEV_REVERSE_LOOKUP[3];
     uint8_t pointer_address_buffer[4];
     uint8_t length = 4;
-    if(i2c_eeprom_read_buffer(dev_id,(uint16_t)pointer_address,(uint8_t*)&pointer_address_buffer[0], (uint16_t)length))
+    if(i2c_eeprom_read_buffer(&dev_id,(uint16_t)pointer_address,(uint8_t*)&pointer_address_buffer[0], (uint16_t)length))
     {
         uint32_t t_buffer = (uint32_t) pointer_address_buffer[0] << 24  |
                             (uint32_t) pointer_address_buffer[1] << 16  |
@@ -217,7 +226,7 @@ uint32_t eeprom_find_add_pointer(void)
     return ((uint32_t)0);
 }
 
-bool eeprom_updateadd_pointer(uint32_t address)
+bool eeprom_update_add_pointer(uint32_t address)
 {
     uint8_t dev_id     = MEM_BASE_ADD | DEV_REVERSE_LOOKUP[3];
     uint8_t pointer_address_buffer[4];

@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define M24M02_FACTORY_ADDRESS         0x02000000
 #define M24M02_I2C_ADDR_SEC            0xA0   
 
 
@@ -17,7 +18,7 @@
  */
 typedef uint32_t (*m24m02_com_fptr_write_t)(uint8_t dev_id, uint8_t reg_addr,
                                             uint8_t *data, uint16_t len);
-typedef uint32_t (*m24m02_com_fptr_read_t)(uint8_t dev_id, uint8_t *reg_addr,
+typedef uint32_t (*m24m02_com_fptr_read_t)(uint8_t *dev_id, uint8_t *reg_addr,
                                             uint8_t *data, uint16_t len);
 
 /*!
@@ -99,10 +100,10 @@ bool i2c_eeprom_read(uint32_t address, uint8_t* data, uint32_t length);
  *	Description:	Reads both the light registers on the device and returns the 
  *			computed light level
 **/
-bool i2c_eeprom_read_buffer(uint8_t dev_id, uint16_t address, uint8_t *buffer, uint16_t length); 
+bool i2c_eeprom_read_buffer(uint8_t *dev_id, uint16_t address, uint8_t *buffer, uint16_t length); 
 
-uint32_t eeprom_find_add_pointer(void);
+uint32_t eeprom_read_add_pointer(void);
 
-bool eeprom_updateadd_pointer(uint32_t address);
+bool eeprom_update_add_pointer(uint32_t address);
 
 #endif // M24M02_H__

@@ -14,20 +14,20 @@
 #include "app_error.h"
 #include "nrf_drv_twi.h"
 #include "nrf_delay.h"
-#include "m24m02.h"
+#include "m24m02_2.h"
 #include "bme280.h"
-#include "ext_device_controller.h"
+#include "i2c_device_controller.h"
 
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
 #ifndef SCL_PIN
-#define SCL_PIN             NRF_GPIO_PIN_MAP(0,26)    // SCL signal pin
-#define SDA_PIN             NRF_GPIO_PIN_MAP(1,15)    // SDA signal pin
-#define WAKEUP_PIN          NRF_GPIO_PIN_MAP(1,8)     // Wakeup signal pin
-#define INT_PIN             NRF_GPIO_PIN_MAP(1,7)     // Data ready (active low)
+#define SCL_PIN             NRF_GPIO_PIN_MAP(0,22)    // SCL signal pin
+#define SDA_PIN             NRF_GPIO_PIN_MAP(0,23)    // SDA signal pin
 #endif
+
+static bool simulate_on = false;
 
 struct bme280_dev i2c_dev_bme280;
 struct m24m02_dev i2c_dev_m24m02;
@@ -41,6 +41,9 @@ static const nrf_drv_twi_t m_twi = NRF_DRV_TWI_INSTANCE(0);
 static volatile bool m_xfer_done1 = false;
 /* I2C enable bool */
 static volatile bool twi_enabled = false;
+
+// EEPROM current address
+uint32_t m24m02_address = 0;
 
 /**
  * @brief TWI events handler.
@@ -117,7 +120,26 @@ static uint32_t twi_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint16
     return err_code;
 }
 
-static uint32_t twi_16bit_address_read(uint8_t dev_id, uint8_t *reg_addr, uint8_t *data, uint16_t len)
+static uint32_t twi_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint16_t len)
+{
+    ret_code_t err_code;
+    
+    /* Build tx buffer */
+    uint8_t reg_write[32];
+    reg_write[0] = reg_addr;
+    if(data) memcpy(&reg_write[1],data,len);
+
+    /* Transfer tx buffer */
+    m_xfer_done1 = false;
+    err_code = nrf_drv_twi_tx(&m_twi, dev_id, reg_write, 1+len, false);
+    APP_ERROR_CHECK(err_code);
+    twi_wait();
+
+    return err_code;
+}
+
+// currently single byte reads
+static uint32_t twi_eeprom_read(uint8_t dev_id, uint8_t *reg_addr, uint8_t *data)
 {
     ret_code_t err_code;
 
@@ -130,28 +152,30 @@ static uint32_t twi_16bit_address_read(uint8_t dev_id, uint8_t *reg_addr, uint8_
 
     /* Now read the register */
     m_xfer_done1 = false; 
-    err_code = nrf_drv_twi_rx(&m_twi, dev_id, data, len);
+    err_code = nrf_drv_twi_rx(&m_twi, dev_id, data, 1);
     APP_ERROR_CHECK(err_code);
     twi_wait();
 
     return err_code;
 }
 
-static uint32_t twi_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint16_t len)
+// currently single byte writes
+static uint32_t twi_eeprom_write(uint8_t dev_id, uint8_t *reg_addr, uint8_t *data)
 {
     ret_code_t err_code;
     
     /* Build tx buffer */
-    uint8_t reg_write[20];
-    reg_write[0] = reg_addr;
-    if(data) memcpy(&reg_write[1],data,len);
+    uint8_t reg_write[3];
+    reg_write[0] = *reg_addr;
+    reg_write[1] = *(reg_addr++);
+    reg_write[2] = *data;
 
     /* Transfer tx buffer */
     m_xfer_done1 = false;
-    err_code = nrf_drv_twi_tx(&m_twi, dev_id, reg_write, 1+len, false);
+    err_code = nrf_drv_twi_tx(&m_twi, dev_id, reg_write, 3, false);
     APP_ERROR_CHECK(err_code);
+    nrf_delay_ms(10); // max delay is 10 ms according to datasheet 
     twi_wait();
-
     return err_code;
 }
 
@@ -166,13 +190,16 @@ static bool scan_for_twi_device(uint8_t dev_address)
     return (err_code == NRF_SUCCESS) ? true:false;
 }
 
-static void print_bme280_sensor_data(struct bme280_data *comp_data)
+static void print_sensor_data(struct bme280_data *comp_data)
 {
 #ifdef BME280_FLOAT_ENABLE
         NRF_LOG_INFO("%0.2f, %0.2f, %0.2f\r\n",comp_data->temperature, comp_data->pressure, comp_data->humidity);
 #else
         //NRF_LOG_INFO("\n")
-        NRF_LOG_INFO("Temp:  %ld, Humid:  %ld  \r",comp_data->temperature, comp_data->humidity);
+        //NRF_LOG_INFO("Temp:  %ld, Humid:  %ld  \r",comp_data->temperature, comp_data->humidity);
+        NRF_LOG_INFO("Temperature (C): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->temperature*0.01f));
+        NRF_LOG_INFO("Pressure (hPa): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->pressure/256.0f));
+        NRF_LOG_INFO("Humidity (%%RH): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->humidity/1024.0f));
 #endif
 }
 
@@ -196,26 +223,48 @@ static void sensor_bme280_init(void)
     }
 }
 
-static int8_t bme280_stream_sensor_data_forced_mode(struct bme280_dev *dev)
+static int8_t bme280_stream_sensor_data_forced_mode(struct bme280_dev *dev, uint8_t * p_data, uint16_t * p_data_length)
 {
+    static uint8_t data_buffer[20];
+    static uint16_t data_buffer_length;
+
     int8_t rslt;
     uint8_t settings_sel;
-    struct bme280_data comp_data;
+    static struct bme280_data comp_data = {0};
     static bool prepare_measurement = true; // because of the delay for the measurement to complete we toggle what we do
 
-    /* Recommended mode of operation: Humidity Sensing (p17 of datasheet) */
-    dev->settings.osr_h = BME280_OVERSAMPLING_1X;
-    dev->settings.osr_p = BME280_NO_OVERSAMPLING;
-    dev->settings.osr_t = BME280_OVERSAMPLING_1X;
-    dev->settings.filter = BME280_FILTER_COEFF_OFF;
-    settings_sel = BME280_OSR_TEMP_SEL | BME280_OSR_HUM_SEL;
-    rslt = bme280_set_sensor_settings(settings_sel, dev);
+    if (!simulate_on)
+    {
+        /* Recommended mode of operation: Humidity Sensing (p17 of datasheet) */
+        dev->settings.osr_h = BME280_OVERSAMPLING_1X;
+        dev->settings.osr_p = BME280_NO_OVERSAMPLING;
+        dev->settings.osr_t = BME280_OVERSAMPLING_1X;
+        dev->settings.filter = BME280_FILTER_COEFF_OFF;
+        settings_sel = BME280_OSR_TEMP_SEL | BME280_OSR_HUM_SEL;
+        rslt = bme280_set_sensor_settings(settings_sel, dev);
 
-    /* Ping for sensor data */
-    rslt = bme280_set_sensor_mode(BME280_FORCED_MODE, dev);
-    nrf_delay_ms(20); // measurement time
-    rslt = bme280_get_sensor_data(BME280_ALL, &comp_data, dev);
-    print_bme280_sensor_data(&comp_data);
+        /* Ping for sensor data */
+        rslt = bme280_set_sensor_mode(BME280_FORCED_MODE, dev);
+        nrf_delay_ms(20); // measurement time
+        rslt = bme280_get_sensor_data(BME280_ALL, &comp_data, dev);
+    }
+    else
+    {
+        comp_data.temperature++;
+        comp_data.humidity++;
+        comp_data.pressure++;
+    }
+    print_sensor_data(&comp_data);
+
+    // package for BLE
+    memcpy(&data_buffer[0], &comp_data.temperature, sizeof(comp_data.temperature));
+    memcpy(&data_buffer[2], &comp_data.humidity, sizeof(comp_data.humidity));
+    memcpy(&data_buffer[4], &comp_data.pressure, sizeof(comp_data.pressure));
+    data_buffer_length = 6;
+
+    // assign pointers
+    memcpy(p_data, &data_buffer[0], data_buffer_length);
+    *p_data_length = data_buffer_length;
 
     return rslt;
 }
@@ -223,12 +272,16 @@ static int8_t bme280_stream_sensor_data_forced_mode(struct bme280_dev *dev)
 static void eeprom_m24m02_init(void)
 {
     i2c_dev_m24m02.dev_id = M24M02_I2C_ADDR_SEC;
-    i2c_dev_m24m02.read = twi_16bit_address_read;
-    i2c_dev_m24m02.write = twi_write;
-    if(scan_for_twi_device(M24M02_I2C_ADDR_SEC))
+    i2c_dev_m24m02.read = twi_eeprom_read;
+    i2c_dev_m24m02.write = twi_eeprom_write;
+    uint8_t test_write[32] = {15};
+    uint8_t test_read[32] = {0};
+    if (m24m02_eeprom_init(&i2c_dev_m24m02) == true)
     {
-        if (i2c_eeprom_init(&i2c_dev_m24m02) == true)
+        if(scan_for_twi_device(M24M02_I2C_ADDR_SEC))
         {
+            m24m02_eeprom(1, 0, 32, &test_write[0]);
+            m24m02_eeprom(0, 0, 32, &test_read[0]);
             enabled_devices |= M24M02;
         }
     }
@@ -242,29 +295,40 @@ void ext_device_init(ext_device_type_t use_devices)
 {
     int8_t rslt_bme280 = BME280_OK;
     
-    twi_init();
-    if(use_devices & BME280)
-    {  
-        sensor_bme280_init();
+    if (use_devices & SIMULATE)
+    {
+        simulate_on = true;
     }
-    if(use_devices & M24M02)
-    {  
-        eeprom_m24m02_init();
+    else
+    {
+        twi_init();
+        if(use_devices & BME280)
+        {  
+            sensor_bme280_init();
+        }
+        if(use_devices & M24M02)
+        {  
+            eeprom_m24m02_init();
+        }
     }
 }
 
-int8_t get_sensor_data(ext_device_type_t get_sensor)
+int8_t get_sensor_data(ext_device_type_t get_sensor, uint8_t * p_data, uint16_t * p_data_length)
 {
     int8_t ret_code = 0;
 
+    
     // check if sensor is enabled
-    if (!(enabled_devices & get_sensor)) return 1;
+    if (!simulate_on)
+    {
+        if (!(enabled_devices & get_sensor)) return 1;
+    }
 
     // query by sensor type
     switch(get_sensor) 
     {
         case BME280:
-            bme280_stream_sensor_data_forced_mode(&i2c_dev_bme280);
+            bme280_stream_sensor_data_forced_mode(&i2c_dev_bme280, p_data, p_data_length);
             break;
         default:
             break;

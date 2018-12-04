@@ -8,6 +8,8 @@ adi-dev/iar_projects/M355_Biased_EIS_Plotter/iar/settings
 adi-dev/iar_projects/M355_Biased_EIS_Plotter/iar/Debug
 ble-dev/target/pca10056/s140/ses/Output
 ble-dev/target/pca10056/s140/ses/*.jlink
+ble-dev/target/pca10040/s132/ses/Output
+ble-dev/target/pca10040/s132/ses/*.jlink
 
 # python stuff
 win-dev/M355_4WireImpedance_Plotter/__pycache__

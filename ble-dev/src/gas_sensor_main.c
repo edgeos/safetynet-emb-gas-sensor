@@ -59,7 +59,7 @@
 #include "ble_advertising.h"
 #include "ble_bas.h"
 #include "ble_dis.h"
-#include "ble_nus.h" // UART service
+#include "ble_gas_srv.h"
 #include "ble_conn_params.h"
 #include "sensorsim.h"
 #include "nrf_sdh.h"
@@ -86,38 +86,37 @@
 #include "nrf_log_default_backends.h"
 
 // internal peripheral contollers
-#include "ext_device_controller.h"
+#include "i2c_device_controller.h"
+
+// gas sensor controller
+#include "aducm355_controller.h"
 
 // external devices (eeprom and temp humidity sensor)
-#include "m24m02.h"
+#include "m24m02_2.h"
 #include "bme280.h"
 
 // defines for ext sensors, the first SAMPLE_INTERVAL defines how often we wake up, the
 // MEASURE_INTERVALs should be a multiple of the SAMPLE_INTERVAL
-#define EXT_SENSORS_WAKEUP_SAMPLE_INTERVAL        100                                      /**< Ext. Sensor measurement interval (ms). */
-#define EXT_SENSORS_WAKEUP_SAMPLE_INTERVAL_TICKS  APP_TIMER_TICKS(100)
-#define CCS811_MEASURE_INTERVAL                   1000                                    /**< CCS811 measurement interval (ms). */
-#define BME280_MEASURE_INTERVAL                   1000                                    /**< BME280 measurement interval (ms). */
-#define MAX30105_MEASURE_INTERVAL                 100                                     /**< MAX30105 measurement interval (ms). */
-#define ADXL362_MEASURE_INTERVAL                  75                                      /**< MAX30105 measurement interval (ms). */
+#define BME280_MEASURE_INTERVAL             1000                                    /**< BME280 measurement interval (ms). */
+#define ADUCM355_MEASURE_INTERVAL           1000                                    /**< ADUCM355 measurement interval (ms). */
+#define ADUCM355_MEASURE_CHECK_INTERVAL       25                                    /**< ADUCM355 check rx buffer interval (ms). */
 
-#define DEVICE_NAME                         "GE GRC Gas Sensor"                     /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                         "GE Gas Sensor"                     /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                   "GE"                                    /**< Manufacturer. Will be passed to Device Information Service. */
-#define NUS_SERVICE_UUID_TYPE               BLE_UUID_TYPE_VENDOR_BEGIN              /**< UUID type for the Nordic UART Service (vendor specific). */
 
 #define APP_BLE_OBSERVER_PRIO               3                                       /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 #define APP_BLE_CONN_CFG_TAG                1                                       /**< A tag identifying the SoftDevice BLE configuration. */
 
 #define APP_ADV_INTERVAL                    300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
-#define APP_ADV_DURATION                    18000                                       /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
+#define APP_ADV_DURATION                    1000                                       /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
 
 #define BATTERY_LEVEL_MEAS_INTERVAL         2000                                    /**< Battery level measurement interval (ms). */
 #define MIN_BATTERY_LEVEL                   81                                      /**< Minimum simulated battery level. */
 #define MAX_BATTERY_LEVEL                   100                                     /**< Maximum simulated battery level. */
 #define BATTERY_LEVEL_INCREMENT             1                                       /**< Increment between each simulated battery level measurement. */
 
-#define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(20, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.4 seconds). */
-#define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(75, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (0.65 second). */
+#define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(200, UNIT_1_25_MS)         /**< Minimum acceptable connection interval (0.4 seconds). */
+#define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(400, UNIT_1_25_MS)         /**< Maximum acceptable connection interval (0.65 second). */
 #define SLAVE_LATENCY                       0                                       /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                    MSEC_TO_UNITS(4000, UNIT_10_MS)         /**< Connection supervisory time-out (4 seconds). */
 
@@ -138,26 +137,26 @@
 
 #define OSTIMER_WAIT_FOR_QUEUE              2                                       /**< Number of ticks to wait for the timer queue to be ready */
 
-BLE_NUS_DEF(m_nus, NRF_SDH_BLE_TOTAL_LINK_COUNT);                   /**< BLE NUS service instance. */
+
+BLE_GAS_SRV_DEF(m_gas);                                             /**< Gas Sensor service instance. */
 BLE_BAS_DEF(m_bas);                                                 /**< Battery service instance. */
 NRF_BLE_GATT_DEF(m_gatt);                                           /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                             /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                 /**< Advertising module instance. */
 
 static uint16_t m_conn_handle            = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
-static uint16_t m_ble_nus_max_data_len   = BLE_GATT_ATT_MTU_DEFAULT - 3;            /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
 
 static sensorsim_cfg_t   m_battery_sim_cfg;                         /**< Battery Level sensor simulator configuration. */
 static sensorsim_state_t m_battery_sim_state;                       /**< Battery Level sensor simulator state. */
 
 static bool m_ble_connected_bool = false;
-
+static bool simulated_gas_sensor_data = true;
 
 static ble_uuid_t m_adv_uuids[] =                                   /**< Universally unique service identifiers. */
 {
     {BLE_UUID_BATTERY_SERVICE, BLE_UUID_TYPE_BLE},
     {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE},
-    {BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}
+    {BLE_UUID_GAS_SENSOR_SERVICE, BLE_UUID_TYPE_BLE}
 };
 
 // FreeRTOS Timers
@@ -165,6 +164,7 @@ static TimerHandle_t m_battery_timer;                               /**< Definit
 
 // FreeRTOS Tasks & semaphore (to prevent i2c contention)
 static TaskHandle_t bme280_measure_task_handle; 
+static TaskHandle_t aducm355_measure_task_handle;
 xSemaphoreHandle i2c_semaphore = 0;
 
 #if NRF_LOG_ENABLED
@@ -309,10 +309,11 @@ static void gap_params_init(void)
 /**@brief Function for handling events from the GATT library. */
 void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
 {
+    uint8_t max_length = 0;
     if ((m_conn_handle == p_evt->conn_handle) && (p_evt->evt_id == NRF_BLE_GATT_EVT_ATT_MTU_UPDATED))
     {
-        m_ble_nus_max_data_len = p_evt->params.att_mtu_effective - OPCODE_LENGTH - HANDLE_LENGTH;
-        NRF_LOG_INFO("Data len is set to 0x%X(%d)", m_ble_nus_max_data_len, m_ble_nus_max_data_len);
+        //max_length = p_evt->params.att_mtu_effective - OPCODE_LENGTH - HANDLE_LENGTH;
+        NRF_LOG_INFO("Data len is set to 0x%X(%d)", max_length, max_length);
     }
     NRF_LOG_DEBUG("ATT MTU exchange completed. central 0x%x peripheral 0x%x",
                   p_gatt->att_mtu_desired_central,
@@ -344,45 +345,25 @@ static void nrf_qwr_error_handler(uint32_t nrf_error)
 }
 
 
-/**@brief Function for handling the data from the Nordic UART Service.
+/**@brief Function for handling the data from the Gas Sensor Service.
  *
- * @details This function will process the data received from the Nordic UART BLE Service and send
- *          it to the UART module.
+ * @details This function will process the data received from the Gas Sensor BLE Service
  *
- * @param[in] p_evt       Nordic UART Service event.
+ * @param[in] p_evt       Gas Sensor Service event.
  */
 /**@snippet [Handling the data received over BLE] */
-static void nus_data_handler(ble_nus_evt_t * p_evt)
+static void gas_data_handler(ble_gas_srv_evt_t * p_evt)
 {
-
-    if (p_evt->type == BLE_NUS_EVT_RX_DATA)
+    ret_code_t err_code;
+    
+    uint8_t buf[BLE_GAS_NORMAL_DATA_LEN];
+    if (p_evt->type == BLE_GAS_SRV_EVT_CONFIG_UPDATED)
     {
         uint32_t err_code;
 
-        NRF_LOG_DEBUG("Received data from BLE NUS. Writing data on UART.");
-        NRF_LOG_HEXDUMP_DEBUG(p_evt->params.rx_data.p_data, p_evt->params.rx_data.length);
-
-        for (uint32_t i = 0; i < p_evt->params.rx_data.length; i++)
-        {
-            do
-            {
-                //err_code = app_uart_put(p_evt->params.rx_data.p_data[i]);
-                if ((err_code != NRF_SUCCESS) && (err_code != NRF_ERROR_BUSY))
-                {
-                    NRF_LOG_ERROR("Failed receiving NUS message. Error 0x%x. ", err_code);
-                    APP_ERROR_CHECK(err_code);
-                }
-            } while (err_code == NRF_ERROR_BUSY);
-        }
-        if (p_evt->params.rx_data.p_data[p_evt->params.rx_data.length - 1] == '\r')
-        {
-            //while (app_uart_put('\n') == NRF_ERROR_BUSY);
-        }
+        NRF_LOG_DEBUG("Received config update from BLE Gas Sensor Service.");
     }
-
 }
-/**@snippet [Handling the data received over BLE] */
-
 
 
 /**@brief Function for initializing services that will be used by the application.
@@ -394,7 +375,7 @@ static void services_init(void)
     ret_code_t         err_code;
     ble_bas_init_t     bas_init;
     ble_dis_init_t     dis_init;
-    ble_nus_init_t     nus_init;
+    ble_gas_srv_init_t gas_init;
     nrf_ble_qwr_init_t qwr_init = {0};
 
     // Initialize Queued Write Module.
@@ -403,12 +384,12 @@ static void services_init(void)
     err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init);
     APP_ERROR_CHECK(err_code);
 
-    // Initialize NUS.
-    memset(&nus_init, 0, sizeof(nus_init));
+    // Initialize Gas Sensor Service.
+    memset(&gas_init, 0, sizeof(gas_init));
 
-    nus_init.data_handler = nus_data_handler;
+    gas_init.evt_handler = gas_data_handler;
 
-    err_code = ble_nus_init(&m_nus, &nus_init);
+    err_code = ble_gas_srv_init(&m_gas, &gas_init);
     APP_ERROR_CHECK(err_code);
 
     // Initialize Battery Service.
@@ -559,7 +540,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
             break;
 
         case BLE_ADV_EVT_IDLE:
-            sleep_mode_enter();
+            //sleep_mode_enter();
             break;
 
         default:
@@ -756,8 +737,8 @@ static void advertising_init(void)
     init.advdata.uuids_complete.uuid_cnt = 2;
     init.advdata.uuids_complete.p_uuids  = &m_adv_uuids[0];
 
-    init.srdata.uuids_complete.uuid_cnt = 1;
-    init.srdata.uuids_complete.p_uuids  = &m_adv_uuids[2];
+    //init.srdata.uuids_complete.uuid_cnt = 1;
+    //init.srdata.uuids_complete.p_uuids  = &m_adv_uuids[2];
 
     init.config.ble_adv_fast_enabled  = true;
     init.config.ble_adv_fast_interval = APP_ADV_INTERVAL;
@@ -842,6 +823,25 @@ static void logger_thread(void * arg)
 }
 #endif //NRF_LOG_ENABLED
 
+/**@brief Function for sending Gas Sensor data over BLE
+ */
+static void gas_characteristic_update(ble_gas_char_update_t char_update, uint8_t * p_data, uint16_t * p_length)
+{
+    ret_code_t err_code;
+
+    err_code = char_update(&m_gas, p_data, p_length, m_conn_handle); 
+    if ((err_code != NRF_SUCCESS) &&
+        (err_code != NRF_ERROR_INVALID_STATE) &&
+        (err_code != NRF_ERROR_RESOURCES) &&
+        (err_code != NRF_ERROR_BUSY) &&
+        (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+       )
+    {
+        APP_ERROR_HANDLER(err_code);
+    }
+}
+
+
 /**@brief A function which is hooked to idle task.
  * @note Idle hook must be enabled in FreeRTOS configuration (configUSE_IDLE_HOOK).
  */
@@ -866,6 +866,9 @@ static void clock_init(void)
  */
 static void bme280_measure_task (void * pvParameter)
 {
+    static uint8_t p_data[BLE_GAS_NORMAL_DATA_LEN];
+    static uint16_t p_data_length;
+
     UNUSED_PARAMETER(pvParameter);
     while(1)
     {
@@ -873,7 +876,8 @@ static void bme280_measure_task (void * pvParameter)
         {
             if(xSemaphoreTake(i2c_semaphore,BME280_MEASURE_INTERVAL))
             {
-                get_sensor_data(BME280);
+                get_sensor_data(BME280, &p_data[0], &p_data_length);
+                gas_characteristic_update(ble_gas_srv_temp_humid_pressure_update, &p_data[0], &p_data_length);
                 xSemaphoreGive(i2c_semaphore);
             }
         }
@@ -881,6 +885,95 @@ static void bme280_measure_task (void * pvParameter)
     }
 }
 
+/**@brief Function for pinging the ADuCM355 for a measurement.
+ */
+static void aducm355_measure_task (void * pvParameter)
+{
+    ret_code_t err_code;
+    static bool measurement_in_progress = false;
+    static bool measurement_done = false;
+    static gas_sensor_results_t gas_results = {0};
+    static gas_sensing_state_t gas_sensing_state;
+    static uint32_t ms_count = 0;
+    static bool aducm355_no_iface = true;
+    static uint32_t num_measurements = 0;
+    static uint32_t current_thread_delay = ADUCM355_MEASURE_INTERVAL;
+    static uint8_t sim_ct = 0;
+
+    static uint8_t p_data[BLE_GAS_NORMAL_DATA_LEN] = {0};
+    static uint16_t p_data_length;
+    static float tmp = 0;
+
+    UNUSED_PARAMETER(pvParameter);
+    while(1)
+    {
+        // simulate ON
+        if (simulated_gas_sensor_data)
+        {
+            // update characteristic
+            if (m_ble_connected_bool)
+            {   
+                gas_results.gas_sensor = CO;
+                gas_results.gas_ppm = 1000 + sim_ct;
+                gas_results.freq  = 10000.0f;
+                gas_results.Z_im += sim_ct;
+                gas_results.Z_re -= sim_ct;
+                p_data_length = sizeof(gas_sensor_results_t);
+                memcpy(&p_data[0], &gas_results, p_data_length);
+                gas_characteristic_update(ble_gas_srv_gas_sensor_update, &p_data[0], &p_data_length);
+                
+                // swap to add some variation
+                tmp = gas_results.Z_im;
+                gas_results.Z_im += gas_results.Z_re;
+                gas_results.Z_re -= tmp;
+
+                sim_ct++;
+                if (sim_ct == 0)
+                {
+                  gas_results.gas_ppm = gas_results.Z_im = gas_results.Z_re = 0;
+                }
+            }
+        }
+        else // simulate OFF
+        {
+            // start new measurement if not already in progress
+            if(measurement_in_progress == false)
+            {
+                err_code = start_aducm355_measurement_seq(CO2);
+                APP_ERROR_CHECK(err_code);
+                measurement_in_progress = true;
+
+                // check more often once a measurement has started
+                current_thread_delay = ADUCM355_MEASURE_CHECK_INTERVAL;
+            }
+            else // else wait for it to finish / continue on
+            {
+                err_code = continue_aducm355_measurement_seq(&gas_results, &measurement_done);
+                APP_ERROR_CHECK(err_code);       
+            }
+
+            // if measurement is done, upload the measurement and increase thread interval back up
+            if (measurement_done)
+            {
+                // update characteristic
+                if (m_ble_connected_bool)
+                {
+                    p_data_length = sizeof(gas_sensor_results_t);
+                    memcpy(&p_data[0], &gas_results, p_data_length);
+                    gas_characteristic_update(ble_gas_srv_gas_sensor_update, &p_data[0], &p_data_length);
+                }
+
+                // clear new measurement
+                measurement_in_progress = measurement_done = false;
+                num_measurements++;
+            
+                // delay until next measurement
+                current_thread_delay = ADUCM355_MEASURE_INTERVAL;
+            }
+        }
+        vTaskDelay(current_thread_delay);
+    }
+}
 
 /**@brief Function for initializeing external sensors.
  */
@@ -889,7 +982,8 @@ static void external_sensor_init(void)
     BaseType_t xReturned;
 
     // initialize i2c + spi sensors
-    ext_device_init(BME280);
+    //ext_device_init(M24M02);
+    ext_device_init(BME280 | SIMULATE);
 
     xReturned = xTaskCreate(bme280_measure_task, "BME280", configMINIMAL_STACK_SIZE + 200, NULL, 1, &bme280_measure_task_handle);
     if (xReturned != pdPASS)
@@ -899,6 +993,27 @@ static void external_sensor_init(void)
     }
 }
 
+
+/**@brief Function for initializeing external sensors.
+ */
+static void gas_sensor_init(void)
+{
+    BaseType_t xReturned;
+
+    ret_code_t ret_code;
+    if (!simulated_gas_sensor_data)
+    {
+        ret_code = init_aducm355_iface();
+        APP_ERROR_CHECK(ret_code);
+    }
+
+    xReturned = xTaskCreate(aducm355_measure_task, "BME280", configMINIMAL_STACK_SIZE + 200, NULL, 1, &aducm355_measure_task_handle);
+    if (xReturned != pdPASS)
+    {
+        NRF_LOG_ERROR("ADUCM355 task not created.");
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+}
 
 /**@brief Function for application main entry.
  */
@@ -915,7 +1030,9 @@ int main(void)
 
     // enable DCDCs to reduce power consumption
     NRF_POWER->DCDCEN = 1;
+#ifdef NRF52840_XXAA
     NRF_POWER->DCDCEN0 = 1;
+#endif
 
     // Do not start any interrupt that uses system functions before system initialisation.
     // The best solution is to start the OS before any other initalisation.
@@ -950,6 +1067,9 @@ int main(void)
     
     // added for gas sensor functions
     external_sensor_init();
+
+    // iface to adcucm355
+    gas_sensor_init();
 
     // Create a FreeRTOS task for the BLE stack.
     // The task will run advertising_start() before entering its loop.
