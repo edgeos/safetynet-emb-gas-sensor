@@ -9,6 +9,11 @@ adi-dev/iar_projects/M355_Biased_EIS_Plotter/iar/Debug
 adi-dev/iar_projects/M355_Biased_EIS_Plotter/iar/Debug/Obj
 adi-dev/iar_projects/M355_Biased_EIS_Plotter/iar/Release
 adi-dev/iar_projects/M355_Biased_EIS_Plotter/iar/Release/Obj
+adi-dev/iar_projects/M355_Biased_EIS_Matchbox/iar/settings
+adi-dev/iar_projects/M355_Biased_EIS_Matchbox/iar/Debug
+adi-dev/iar_projects/M355_Biased_EIS_Matchbox/iar/Debug/Obj
+adi-dev/iar_projects/M355_Biased_EIS_Matchbox/iar/Release
+adi-dev/iar_projects/M355_Biased_EIS_Matchbox/iar/Release/Obj
 ble-dev/target/pca10056/s140/ses/Output
 ble-dev/target/pca10056/s140/ses/*.jlink
 ble-dev/target/pca10040/s132/ses/Output
