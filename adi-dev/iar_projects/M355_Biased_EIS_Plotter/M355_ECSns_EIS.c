@@ -85,7 +85,7 @@ int iNumBytesInFifo = 0;                       // Used to determine the number o
         
 volatile uint32_t ucUartDataRcvd = 0;
 volatile uint32_t ackRcvd = 0;
-volatile uint32_t measureOn = 0, measureSt = 0;
+volatile uint32_t measureOn = 0;
 
 static uint32_t numFreqInds = 20;
 static uart_packet rx_packet = {0};
@@ -144,21 +144,14 @@ void main(void)
    }
    ChargeECSensor();
    
-   measureOn = measureSt = 0;
+   measureOn = 0;
    while(1)
    {
-      if (send_ack)
-      {
-         // found a valid packet, construct and send an ACK before we act on the packet
-         build_ack_packet(&uart_tx_buffer[0], &uart_tx_length, &rx_packet);
-         TxUartBuffer(uart_tx_length, false);
-         send_ack = false;
-         measureOn = measureSt;
-      }
-      else if (measureOn)
+      if (measureOn)
       {
          StartMeasurement();
          SendMeasurement();
+         delay_10us(500); // 5ms between runs
       }      
    }
 }
@@ -193,11 +186,11 @@ void UartRxParser()
             break;
          case CMD_START_MEASURE:
             ConfigImpMeasurement();
-            measureSt = 1;
+            measureOn = 1;
             send_ack = true;
             break;
          case CMD_STOP_MEASURE:
-            measureOn = measureSt = 0;
+            measureOn = 0;
             send_ack = true;
             break;
          case CMD_ACK:
@@ -235,7 +228,7 @@ void SendMeasurement()
       {
          delay_10us(1);
          timeout++;
-      } while (timeout < 20);
+      } while (timeout < 100); // 1ms between packets
    }
 }
 
@@ -493,7 +486,7 @@ uint8_t SnsACSigChainCfg(float freq)
       delay_10us(50);
       pADI_AFE->AFECON |= BITM_AFE_AFECON_DFTEN;// re-enable DFT
       AfeAdcDFTCfg(BITM_AFE_DFTCON_HANNINGEN,
-                   DFTNUM_16384,
+                   DFTNUM_1024,
                    DFTIN_SINC3);               //DFT source: Sinc3 result. 16384 * (1/200000) = 81.92mS
      FCW_Val = (((freq/16000000)*1073741824)+0.5);
       WgFreqReg = (uint32_t)FCW_Val; 
@@ -525,7 +518,7 @@ uint8_t SnsACSigChainCfg(float freq)
       pADI_AFE->AFECON |= 
         BITM_AFE_AFECON_DFTEN;                 // re-enable DFT
       AfeAdcDFTCfg(BITM_AFE_DFTCON_HANNINGEN,
-                   DFTNUM_16384,DFTIN_SINC3); //DFT source: Sinc3 result 16384 * (1/800000) = 20.48mS
+                   DFTNUM_1024,DFTIN_SINC3); //DFT source: Sinc3 result 16384 * (1/800000) = 20.48mS
      FCW_Val = (((freq/16000000)*1073741824)+0.5);
      WgFreqReg = (uint32_t)FCW_Val;
    }
@@ -788,9 +781,10 @@ uint8_t TxUartBuffer(unsigned char length, bool waitForAck)
    {
       ucTxBufferEmpty = 0;	                  // Clear flag
       UrtTx(pADI_UART0,uart_tx_buffer[i]);        // Load UART Tx register.
-      while (ucTxBufferEmpty == 0)                // Wait for UART Tx interrupt
+      while(!(pADI_UART0->COMLSR&BITM_UART_COMLSR_TEMT));
+      /*while (ucTxBufferEmpty == 0)                // Wait for UART Tx interrupt
       {
-      }
+      }*/
    }
    if(waitForAck)
    {
@@ -825,7 +819,7 @@ void UartInit(void)
    UrtFifoClr(pADI_UART0, BITM_UART_COMFCR_RFCLR// Clear the Rx/TX FIFOs
               |BITM_UART_COMFCR_TFCLR);
    UrtIntCfg(pADI_UART0,BITM_UART_COMIEN_ERBFI |
-             BITM_UART_COMIEN_ETBEI |
+             //BITM_UART_COMIEN_ETBEI |
                 BITM_UART_COMIEN_ELSI);                  // Enable Rx, Tx and Rx buffer full Interrupts
 
    NVIC_EnableIRQ(UART_EVT_IRQn);              // Enable UART interrupt source in NVIC
@@ -868,6 +862,14 @@ void UART_Int_Handler()
    {
       ucUartDataRcvd = 0;
       UartRxParser();
+   }
+   
+   if (send_ack)
+   {
+      // found a valid packet, construct and send an ACK before we act on the packet
+      build_ack_packet(&uart_tx_buffer[0], &uart_tx_length, &rx_packet);
+      TxUartBuffer(uart_tx_length, false);
+      send_ack = false;
    }
 }
 

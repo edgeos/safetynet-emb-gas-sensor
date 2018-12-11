@@ -296,16 +296,16 @@ class MyDialog(object):
         self.tab_3.setLayout(layout)
 
         # Tab 4 stuff
-        self.plot1_tab4 = pg.PlotWidget(title="Z'",labels={'left':"Z' [Ohm]",'bottom':'Time [sec]'})
+        self.plot1_tab4 = pg.PlotWidget(title="",labels={'left':"Z' [Ohm]",'bottom':'Time [sec]'})
         self.plot1_tab4.setGeometry(QtCore.QRect(715, 75, 630, 516))
         self.plot1_tab4.setObjectName("plot1_tab4")
-        self.plot2_tab4 = pg.PlotWidget(title="Z'",labels={'left':"Z' [Ohm]",'bottom':'Time [sec]'})
+        self.plot2_tab4 = pg.PlotWidget(title="",labels={'left':"Z' [Ohm]",'bottom':'Time [sec]'})
         self.plot2_tab4.setGeometry(QtCore.QRect(715, 75, 630, 516))
         self.plot2_tab4.setObjectName("plot2_tab4")
-        self.plot3_tab4 = pg.PlotWidget(title="Z'",labels={'left':"Z' [Ohm]",'bottom':'Time [sec]'})
+        self.plot3_tab4 = pg.PlotWidget(title="",labels={'left':"Z' [Ohm]",'bottom':'Time [sec]'})
         self.plot3_tab4.setGeometry(QtCore.QRect(715, 75, 630, 516))
         self.plot3_tab4.setObjectName("plot3_tab4")
-        self.plot4_tab4 = pg.PlotWidget(title="Z'",labels={'left':"Z' [Ohm]",'bottom':'Time [sec]'})
+        self.plot4_tab4 = pg.PlotWidget(title="",labels={'left':"Z' [Ohm]",'bottom':'Time [sec]'})
         self.plot4_tab4.setGeometry(QtCore.QRect(715, 75, 630, 516))
         self.plot4_tab4.setObjectName("plot4_tab4")
 
@@ -363,13 +363,19 @@ class MyDialog(object):
         self.freq_tab4_plot4_Spinbox_tab4.setFont(font)
 
         self.zRecordButton = QtWidgets.QPushButton("Turn On Record")
-        font = QtGui.QFont()
-        font.setPointSize(14)
-        font.setBold(True)
         self.zRecordButton.setCheckable(False)
         self.zRecordButton.setFlat(False)
         self.zRecordButton.setObjectName("zRecordButton")
         
+        self.clearDataButton = QtWidgets.QPushButton("Clear Data")
+        self.clearDataButton.setCheckable(False)
+        self.clearDataButton.setFlat(False)
+        self.clearDataButton.setObjectName("clearDataButton")
+
+        self.toggle_tab4_plotsButton = QtWidgets.QPushButton('Plot Z"')
+        self.toggle_tab4_plotsButton.setCheckable(False)
+        self.toggle_tab4_plotsButton.setFlat(False)
+        self.toggle_tab4_plotsButton.setObjectName("toggle_tab4_plotsButton")
 
         layout = QtGui.QGridLayout()
         layout.addWidget(self.plot1_tab4,1,1,1,1)
@@ -390,6 +396,8 @@ class MyDialog(object):
         layout.addWidget(self.label_32,2,3,1,1,Qt.AlignRight)
         layout.addWidget(self.label_33,2,4,1,1,Qt.AlignRight)
         layout.addWidget(self.zRecordButton,0,4,1,1,Qt.AlignRight)
+        layout.addWidget(self.clearDataButton,0,1,1,1,Qt.AlignLeft)
+        layout.addWidget(self.toggle_tab4_plotsButton,2,1,1,1,Qt.AlignLeft)
         self.tab_4.setLayout(layout)
 
 
@@ -404,8 +412,6 @@ class MyDialog(object):
         self.togglePlotButton.setDefault(True)
         self.togglePlotButton.setFlat(False)
         self.togglePlotButton.setObjectName("connectButton")
-
-
 
         self.retranslateUi(Dialog)
         self.plot_tabWidget.setCurrentIndex(0)
@@ -465,7 +471,7 @@ class MyDialog(object):
 "<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">10</p></body></html>"))
         self.plot_tabWidget.setTabText(self.plot_tabWidget.indexOf(self.tab_2), _translate("Dialog", "Run Chart"))
         self.plot_tabWidget.setTabText(self.plot_tabWidget.indexOf(self.tab_3), _translate("Dialog", "Smith Chart"))
-        self.plot_tabWidget.setTabText(self.plot_tabWidget.indexOf(self.tab_4), _translate("Dialog", "Z' Charts"))
+        self.plot_tabWidget.setTabText(self.plot_tabWidget.indexOf(self.tab_4), _translate("Dialog", "Z Charts"))
         self.label_5.setText(_translate("Dialog", "Console Log"))
         self.label_6.setText(_translate("Dialog", "ADuCM355 Eval Board Plotting Tool"))
         self.togglePlotButton.setText(_translate("Dialog", "Toggle Mag/Ph Off"))

@@ -17,9 +17,13 @@ class ADuCM355_Plotter:
         self.x_time = list()
         self.tab1_plot_imag_vs_freq = False
         self.tab3_plot_s11 = True
+        self.tab4_plot_z_re = True
         self.z = list()
         self.real_z = list()
         self.imag_z = list()
+        self.t_period = 0
+        self.current_plot_time = datetime.datetime.now()
+        self.prev_plot_time = datetime.datetime.now()
 
     def change_tab1_plot(self):
         if self.tab1_plot_imag_vs_freq is True:
@@ -88,12 +92,13 @@ class ADuCM355_Plotter:
             latest_data_inds = latest_data_inds[-2:]
             t_per = df['UTC_TIME'][latest_data_inds[-1]] - df['UTC_TIME'][latest_data_inds[0]]
             t_tot = N*t_per
+            self.t_period = t_tot
             if t_tot <= T:
                 self.ui.passLabel.setStyleSheet("color: rgb(0,255,0)")
-                self.ui.passLabel.setText('PASS')
+                self.ui.passLabel.setText('PASS (' + "{0:0.3f}".format(t_tot) + ' sec)')
             else:
                 self.ui.passLabel.setStyleSheet("color: rgb(255,0,0)")
-                self.ui.passLabel.setText('FAIL')
+                self.ui.passLabel.setText('FAIL (' + "{0:0.3f}".format(t_tot) + ' sec)')
 
     def get_real_z_by_freq(self, df):
         # get phase and mag
@@ -105,33 +110,56 @@ class ADuCM355_Plotter:
         self.imag_z = np.asarray([m*math.sin(math.radians(ph)) for m,ph in zip(mag,phase)])
 
     def plot_tab4(self, df):
+        # maintain slow update rate
+        # min_update_rate = 500 # ms
+        # if self.t_period < min_update_rate:
+        #     self.current_plot_time = datetime.datetime.now()
+        #     d = self.current_plot_time - self.prev_plot_time
+        #     if (d.total_seconds() * 1000) < min_update_rate:
+        #         return
+
         self.update_pass_fail_text(df)
+        self.prev_plot_time = self.current_plot_time
         self.update_plot_inds(df, self.ui.freq_tab4_plot1_Spinbox_tab4.value())
         N = self.ui.avgCountSpinbox_tab4.value()
         N = N if len(self.row_inds) >= N else len(self.row_inds)
 
         self.get_real_z_by_freq(df)
-        ydata = self.running_mean(self.real_z,N).tolist()
+        if self.tab4_plot_z_re is True:
+            tit_text = "Z' [Ohms]"
+            ydata = self.running_mean(self.real_z,N).tolist()
+        else:
+            tit_text = 'Z" [Ohms]'
+            ydata = self.running_mean(self.imag_z,N).tolist()
         self.x_time = self.x_time[-len(ydata):]
-        self.plot_fn(self.ui.plot1_tab4, self.x_time, ydata, "Z' [Ohms]", 'Time [sec]')
+        self.plot_fn(self.ui.plot1_tab4, self.x_time, ydata, tit_text, 'Time [sec]')
 
         self.update_plot_inds(df, self.ui.freq_tab4_plot2_Spinbox_tab4.value())
         self.get_real_z_by_freq(df)
-        ydata = self.running_mean(self.real_z,N).tolist()
+        if self.tab4_plot_z_re is True:
+            ydata = self.running_mean(self.real_z,N).tolist()
+        else:
+            ydata = self.running_mean(self.imag_z,N).tolist()
         self.x_time = self.x_time[-len(ydata):]
-        self.plot_fn(self.ui.plot2_tab4, self.x_time, ydata, "Z' [Ohms]", 'Time [sec]')
+        self.plot_fn(self.ui.plot2_tab4, self.x_time, ydata, tit_text, 'Time [sec]')
 
         self.update_plot_inds(df, self.ui.freq_tab4_plot3_Spinbox_tab4.value())
         self.get_real_z_by_freq(df)
-        ydata = self.running_mean(self.real_z,N).tolist()
+        if self.tab4_plot_z_re is True:
+            ydata = self.running_mean(self.real_z,N).tolist()
+        else:
+            ydata = self.running_mean(self.imag_z,N).tolist()
         self.x_time = self.x_time[-len(ydata):]
-        self.plot_fn(self.ui.plot3_tab4, self.x_time, ydata, "Z' [Ohms]", 'Time [sec]')
+        self.plot_fn(self.ui.plot3_tab4, self.x_time, ydata, tit_text, 'Time [sec]')
 
         self.update_plot_inds(df, self.ui.freq_tab4_plot4_Spinbox_tab4.value())
         self.get_real_z_by_freq(df)
-        ydata = self.running_mean(self.real_z,N).tolist()
+        if self.tab4_plot_z_re is True:
+            ydata = self.running_mean(self.real_z,N).tolist()
+        else:
+            ydata = self.running_mean(self.imag_z,N).tolist()
         self.x_time = self.x_time[-len(ydata):]
-        self.plot_fn(self.ui.plot4_tab4, self.x_time, ydata, "Z' [Ohms]", 'Time [sec]')
+        self.plot_fn(self.ui.plot4_tab4, self.x_time, ydata, tit_text, 'Time [sec]')
 
     def running_mean(self, x, N):
         cumsum = np.cumsum(np.insert(x, 0, 0)) 
@@ -274,5 +302,6 @@ class ADuCM355_Plotter:
         ph.setLabel('left', ylabel)
 
         plot_handle.clear()
-        plot_handle.setYRange(-ylim_log10, ylim_log10)
+        #plot_handle.setYRange(-ylim_log10, ylim_log10)
+        #plot_handle.autoRange(padding=0.05)
         plot_handle.plot(y=ydata, x=xdata, pen=pg.mkPen('k', width=2))

@@ -1,5 +1,4 @@
 import sys
-sys.setrecursionlimit(50000)
 import logging
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import pyqtSignal
@@ -58,6 +57,7 @@ class AppWindow(QtWidgets.QDialog):
         self.connected = False
         self.save_data = False # to save CSV flag
         self.running = False
+        self.set_clear_trigger = False
         self.save_data_file = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + '_ImpedanceData.csv'
 
         # refresh com ports
@@ -86,6 +86,8 @@ class AppWindow(QtWidgets.QDialog):
         self.ui.avgTimeSpinbox_tab4.setMinimum(1)
         self.ui.zRecordButton.clicked.connect(partial(self.toggle_z_record, False))
         self.zRecordOn = False
+        self.ui.clearDataButton.clicked.connect(self.clear_data)
+        self.ui.toggle_tab4_plotsButton.clicked.connect(self.toggle_z_plot)
 
         # register packet handlers
         self.packet_handlers = {
@@ -128,8 +130,23 @@ class AppWindow(QtWidgets.QDialog):
         self.df_cols = list(['UTC_TIME', 'FREQ_HZ', 'RCAL_REAL', 'RCAL_IMG', 'RX_REAL', 'RX_IMG', 'MAG', 'PHASE', 'Z_R', 'Z_I'])
         self.df = pd.DataFrame(columns=self.df_cols,dtype=np.float32)
         self.unique_freqs = list()
+        self.single_sweep = False
+        self.current_zlog_time = datetime.datetime.now()
+        self.prev_zlog_time = datetime.datetime.now()
+        self.avgMeasurementTime = 0
+
+        self.current_plot_time = datetime.datetime.now()
+        self.prev_plot_time = datetime.datetime.now()
 
         self.show()
+
+    def clear_data(self):
+        if self.running is True:
+            self.set_clear_trigger = True
+            logging.info('Cleared data cache!')
+        else:
+            logging.info('Not running, nothing to clear!')
+
 
     def update_freq_text(self, reset):
         if reset is True:    
@@ -159,6 +176,16 @@ class AppWindow(QtWidgets.QDialog):
         # prevent the signal from being emitted too quickly
         self.MUTEX_PROTECT_PLOTTER = True
         try:
+            # maintain slow update rate
+            min_update_rate = 500 # ms
+            self.current_plot_time = datetime.datetime.now()
+            d = self.current_plot_time - self.prev_plot_time
+            if (d.total_seconds() * 1000) > min_update_rate:
+                plot_continue = True
+                self.prev_plot_time = self.current_plot_time
+            else:
+                plot_continue = False
+            
             # get unique freqs from dataframe
             unique_freqs = self.df['FREQ_HZ'].unique().tolist()
             freq_matches = set(unique_freqs).intersection(self.unique_freqs)
@@ -171,7 +198,7 @@ class AppWindow(QtWidgets.QDialog):
                 self.ui.freq_tab4_plot4_Spinbox_tab4.setMaximum(len(unique_freqs)-1)
                 self.update_freq_text(False)
 
-            if self.update_smith is True:
+            if self.update_smith is True and plot_continue is True:
                 # only update the currently visible plot to save CPU
                 current_tab = self.ui.plot_tabWidget.currentIndex()
                 if current_tab == 0:
@@ -184,15 +211,33 @@ class AppWindow(QtWidgets.QDialog):
                 elif current_tab == 3:
                     self.plotter.plot_tab4(self.df)
                 self.update_smith = False
+
+                if self.set_clear_trigger is True:
+                    self.df = pd.DataFrame(columns=self.df_cols,dtype=np.float32)
+                    self.set_clear_trigger = False
         except:
             self.update_smith = False
             pass
         self.MUTEX_PROTECT_PLOTTER = False
 
+    def toggle_z_plot(self):
+        if self.plotter.tab4_plot_z_re is True:
+            self.plotter.tab4_plot_z_re = False
+            self.ui.toggle_tab4_plotsButton.setText("Plot Z'")
+        else:
+            self.plotter.tab4_plot_z_re = True
+            self.ui.toggle_tab4_plotsButton.setText('Plot Z"')
+
     def toggle_z_record(self, force_record_off):
+        # don't touch until data handling at UART is done
+        while self.MUTEX_PROTECT_UART is True:
+            time.sleep(0.00001)
+
         if force_record_off is True:
             if self.zRecordOn is False:
                 return
+
+        self.MUTEX_PROTECT_UART = True
 
         # toggle
         if self.zRecordOn is False:
@@ -202,6 +247,7 @@ class AppWindow(QtWidgets.QDialog):
 
             # grab measurement parameters
             self.avgMeasurementNum = self.ui.avgCountSpinbox_tab4.value()
+            self.avgMeasurementTime = self.ui.avgTimeSpinbox_tab4.value()
             self.avgMeasurementCount = 0
             time_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             self.save_zreal_data_file = time_str + '_z_real.re'
@@ -211,10 +257,12 @@ class AppWindow(QtWidgets.QDialog):
             unique_freqs = self.df['FREQ_HZ'].unique()
             unique_freqs = unique_freqs.tolist()
             with open(self.save_zreal_data_file,'a',newline='') as f:
+                f.write('UTC_Time' + '\t')
                 for freq in unique_freqs:
                     f.write(str(freq) + '\t')
                 f.write('\n')
             with open(self.save_zimag_data_file,'a',newline='') as f:
+                f.write('UTC_Time' + '\t')
                 for freq in unique_freqs:
                     f.write(str(freq) + '\t')
                 f.write('\n')
@@ -233,32 +281,47 @@ class AppWindow(QtWidgets.QDialog):
 
             self.zRecordOn = False
 
+        self.MUTEX_PROTECT_UART = False
+
     def save_z_data_to_tab_delimited_file(self):
-        self.avgMeasurementCount = self.avgMeasurementCount + 1
-        if self.avgMeasurementCount == self.avgMeasurementNum:
-            # calculate avg vals for each unique freq for last Num measurements
-            unique_freqs = self.df['FREQ_HZ'].unique()
-            avg_z_r = np.zeros(shape=(1,max(unique_freqs.shape)))
-            avg_z_i = np.zeros(shape=(1,max(unique_freqs.shape)))
-            for idx, f in enumerate(unique_freqs):
-                all_rows = self.df.loc[self.df['FREQ_HZ']==f].index.values
-                last_N_rows = all_rows[-self.avgMeasurementNum:].tolist()
-                avg_z_r[0][idx] = np.mean(self.df['Z_R'][last_N_rows])
-                avg_z_i[0][idx] = np.mean(self.df['Z_I'][last_N_rows])
-            
-            # write to txt files
-            with open(self.save_zreal_data_file,'a',newline='') as f:
-                for i, z_r in np.ndenumerate(avg_z_r):
-                    f.write(str(z_r) + '\t')
-                f.write('\n')
+        if self.single_sweep is True:
+            # maintain slow update rate
+            self.avgMeasurementCount = self.avgMeasurementCount + 1
+            self.current_zlog_time = datetime.datetime.now()
+            d = self.current_zlog_time - self.prev_zlog_time
+            if d.total_seconds() < self.avgMeasurementTime:
+                return
 
-            with open(self.save_zimag_data_file,'a',newline='') as f:
-                for i, z_i in np.ndenumerate(avg_z_i):
-                    f.write(str(z_i) + '\t')
-                f.write('\n')
+            self.prev_zlog_time = self.current_zlog_time
+            if self.avgMeasurementCount >= self.avgMeasurementNum:
+                # calculate avg vals for each unique freq for last Num measurements
+                unique_freqs = self.df['FREQ_HZ'].unique()
+                utc_time = self.df['UTC_TIME'][-1:].tolist()
+                avg_z_r = np.zeros(shape=(1,max(unique_freqs.shape)))
+                avg_z_i = np.zeros(shape=(1,max(unique_freqs.shape)))
+                for idx, f in enumerate(unique_freqs):
+                    all_rows = self.df.loc[self.df['FREQ_HZ']==f].index.values
+                    last_N_rows = all_rows[-self.avgMeasurementNum:].tolist()
+                    if self.avgMeasurementNum == 1:
+                        last_N_rows = last_N_rows[0]
+                    avg_z_r[0][idx] = np.mean(self.df['Z_R'][last_N_rows])
+                    avg_z_i[0][idx] = np.mean(self.df['Z_I'][last_N_rows])
+                
+                # write to txt files
+                with open(self.save_zreal_data_file,'a',newline='') as f:
+                    f.write(str(utc_time[0]) + '\t')
+                    for i, z_r in np.ndenumerate(avg_z_r):
+                        f.write(str(z_r) + '\t')
+                    f.write('\n')
 
-            # reset count
-            self.avgMeasurementCount = 0
+                with open(self.save_zimag_data_file,'a',newline='') as f:
+                    f.write(str(utc_time[0]) + '\t')
+                    for i, z_i in np.ndenumerate(avg_z_i):
+                        f.write(str(z_i) + '\t')
+                    f.write('\n')
+
+                # reset count
+                self.avgMeasurementCount = 0
 
 
     def save_data_to_csv(self, data):
@@ -270,13 +333,16 @@ class AppWindow(QtWidgets.QDialog):
         # don't touch the data until plotting is done
         while self.MUTEX_PROTECT_PLOTTER is True:
             time.sleep(0.00001)
-
+        
         self.df.loc[len(self.df.index)] = data
 
+        # don't start averaging / recording z-data until a single sweep is done
         if self.update_smith is True:
-            if self.zRecordOn is True:
-                self.save_z_data_to_tab_delimited_file()
-        
+            self.single_sweep = True
+
+        if self.zRecordOn is True:
+            self.save_z_data_to_tab_delimited_file()
+
         # send signal when plotter is available
         self.update_plots_signal.emit()
 
@@ -287,6 +353,9 @@ class AppWindow(QtWidgets.QDialog):
 
         # update save data file 
         self.save_data_file = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + '_ImpedanceData.csv'
+
+        # reset single sweep boolean
+        self.single_sweep = False
 
         # check if we're saving data
         self.save_data = False
@@ -410,7 +479,7 @@ class AppWindow(QtWidgets.QDialog):
                     self.tx_ready = False
                     self.MUTEX_PROTECT_UART = False
             else:
-                time.sleep(0.1)
+                time.sleep(0.001)
     
     def handle_serial_buffer(self):
         # search for start bytes
