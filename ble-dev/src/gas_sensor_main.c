@@ -1030,7 +1030,9 @@ static void aducm355_measure_task (void * pvParameter)
                 // using i2c, make sure BME280 thread doesn't contest
                 if(xSemaphoreTake(i2c_semaphore,ADUCM355_MEASURE_INTERVAL_CONNECTED))
                 {
+#ifndef BOARD_PCA10056 
                     store_sensor_data_eeprom(&latest_measurement_data, &ms_count);
+#endif
                     xSemaphoreGive(i2c_semaphore);
                 }
                 current_thread_delay = ADUCM355_MEASURE_INTERVAL_DISCONNECTED;
@@ -1100,7 +1102,9 @@ static void external_sensor_init(void)
     BaseType_t xReturned;
 
     // initialize i2c + spi sensors
+#ifndef BOARD_PCA10056
     ext_device_init(M24M02);
+#endif
     ext_device_init(BME280 | SIMULATE);
 
   /* //test reading stored measurements
