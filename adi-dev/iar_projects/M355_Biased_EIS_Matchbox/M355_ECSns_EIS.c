@@ -39,6 +39,7 @@ to ensure that the resulting application performs as required and is safe.
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include "IntLib.h"
 #include "M355_ECSns_EIS.h"
 #include "M355_ECSns_DCTest.h"
 #include "aducm355_cmd_protocol.h"
@@ -88,8 +89,9 @@ ImpResult_t ImpResult[100] = {0};
 float measurement_freq = 0.0f;
 uint16_t num_to_avg = 0;
 
-aducm355_state_t current_state = ADUCM355_IDLE;
-MeasResult_t     meas_result   = {0};
+aducm355_state_t current_state    = ADUCM355_IDLE;
+MeasResult_t meas_result          = {0};
+gas_sensor_t current_gas_selected = GAS1;
 
 void main(void)
 {
@@ -108,16 +110,8 @@ void main(void)
    }
    
 #endif
-  
-   u32AFEDieStaRdy = AfeDieSta();              // Check if Kernel completed correctly before accessing AFE die             
-   if ((u32AFEDieStaRdy & 1) == 1)             // Kernel initialization of AFE die was not successful
-   { 
-     UartInit();                               // Initialize UART for 57600-8-N-1
-     printf("AFE DIE Failure" EOL);
-     while(u32AFEDieStaRdy == 1)               // AFE die has not initialized correctly.
-     {}                                        // trap code here 
-   }
    AfeWdtGo(false);                            // Turn off AFE watchdog timer for debug purposes
+   pADI_ALLON->EI2CON = 0x08; //this will be set in system init function, Enable dummy read to wake up AFE die
    GPIOInit();                                 // init GPIO pins
    ClockInit();                                // Init system clock sources
    UartInit();                                 // Init UART for 57600-8-N-1
@@ -126,17 +120,17 @@ void main(void)
    pSnsCfg1 = getSnsCfg(CHAN1);
    if((pSnsCfg0->Enable == SENSOR_CHANNEL_ENABLE))
    {
-      printf("Sensor Initializing...");
+      //printf("Sensor Initializing...");
       SnsInit(pSnsCfg0);
       for(uint32_t i=0;i<5000;i++)delay_10us(100);
-      printf("Finish" EOL);
+      //printf("Finish" EOL);
    }
    if((pSnsCfg1->Enable == SENSOR_CHANNEL_ENABLE))
    {
-      printf("%s Sensor Initializing...", pSnsCfg1->SensorName);
+      //printf("%s Sensor Initializing...", pSnsCfg1->SensorName);
       SnsInit(pSnsCfg1);
       for(uint32_t i=0;i<5000;i++)delay_10us(100);
-      printf("Finish" EOL);
+      //printf("Finish" EOL);
    }
    ChargeECSensor();
    
@@ -144,12 +138,27 @@ void main(void)
    while(1)
    {
       if (measureOn)
-      {
+      {  
+         //AfeDioSetPin(pADI_AGPIO2, PIN1); // LED on during measurement
          StartMeasurement();
          SendMeasurement();
          measureOn = 0;
          current_state = ADUCM355_IDLE;
-      }      
+         //AfeDioClrPin(pADI_AGPIO2, PIN1); // LED off
+      }
+      if (current_state == ADUCM355_SLEEP) // to go to sleep mode
+      {
+         //printf("MCU Entering hibernate mode\r\n");
+         AfeDioClrPin(pADI_AGPIO2, PIN1); // LED off
+         /*Enable UART_RX wakeup interrupt before entering hiberante mode*/
+         EiCfg(EXTUARTRX,INT_EN,INT_FALL);
+         /*AFE die enter hibernate mode*/
+         AfePwrCfg(AFE_HIBERNATE);
+         /*Digital die Enter hibernater mode, no battery monitor, 24K SRAM*/
+         PwrCfg(ENUM_PMG_PWRMOD_HIBERNATE,BITM_PMG_PWRMOD_MONVBATN,BITM_PMG_SRAMRET_BNK2EN);
+         /*Following instruction should not be executed before user sent 1 to wakeup MCU*/
+         //printf("MCU wake up\r\n");
+      }
    }
 }
 
@@ -194,6 +203,10 @@ void UartRxParser()
          case CMD_ACK:
             ackRcvd = 1;
             break;
+         case CMD_SLEEP:
+            current_state = ADUCM355_SLEEP;
+            send_ack = true;
+            break;
          case CMD_SEND_DATA: // shouldn't receive here
          default:
             break;
@@ -217,7 +230,7 @@ void SendMeasurement()
    while(!TxUartBuffer(uart_tx_length, true) & num_try < MAX_UART_TRY) { num_try++; } */
       
    // don't wait for ACK, but put a Tx delay between packets
-   uint16_t timeout = 0;
+   //uint16_t timeout = 0;
    TxUartBuffer(uart_tx_length, false);
    /*do
    {
@@ -231,6 +244,7 @@ void ConfigImpMeasurement()
   measure_payload *settings = (measure_payload *)&rx_packet.payload;
   measurement_freq = settings->freq;
   num_to_avg = settings->num_avg;
+  current_gas_selected = (gas_sensor_t) settings->sensor;
   for(uint32_t i=0; i< num_to_avg; i++)
   {
      ImpResult[i].freq = measurement_freq;
@@ -252,10 +266,15 @@ void GPIOInit(void)
    /*S2 configuration*/
    DioCfgPin(pADI_GPIO1,PIN0,0); //configure as gpio
    DioIenPin(pADI_GPIO1,PIN0,1); //enable input
-   DioPulPin(pADI_GPIO1,PIN0,1);  //enable pull-up
+   DioPulPin(pADI_GPIO1,PIN0,1); //enable pull-up
    DioIntPolPin(pADI_GPIO1,PIN0,1);           // Set polarity of P1.0 interrupt to low-high transition
    DioIntPin(pADI_GPIO1,PIN0,INTA,1);         // Enable External interrupt A on P1.0
    NVIC_EnableIRQ(SYS_GPIO_INTA_IRQn);         // Enable GPIO_INTA interrupt source in NVIC
+   
+   // LED Config
+   AfeDioCfgPin(pADI_AGPIO2, PIN1, 0);
+   AfeDioOenPin(pADI_AGPIO2, PIN1, 1); //enable output
+   AfeDioClrPin(pADI_AGPIO2, PIN1);    //set low by default (LED = off)
 }
 
 /**
@@ -458,9 +477,9 @@ uint8_t SnsACSigChainCfg(float freq)
    }
    else if(freq<80000)  /*450Hz < frequency < 80KHz*/
    {
-     ClkDivCfg(1,1);                           // digital die to 26MHz 
-     AfeHFOsc32M(0);                           // AFE oscillator change to 16MHz
-     AfeSysClkDiv(AFE_SYSCLKDIV_1);            // AFE system clock remain in 16MHz  
+      ClkDivCfg(1,1);                           // digital die to 26MHz 
+      AfeHFOsc32M(0);                           // AFE oscillator change to 16MHz
+      AfeSysClkDiv(AFE_SYSCLKDIV_1);            // AFE system clock remain in 16MHz  
       /*set middle DAC update rate,16MHz/18=~888KHz update rate,skew the DAC and ADC clocks with respect to each other*/
       AfeSysCfg(ENUM_AFE_PMBW_LP,ENUM_AFE_PMBW_BW250);   
 		AfeHpTiaCon(HPTIABIAS_1V1);
@@ -483,7 +502,7 @@ uint8_t SnsACSigChainCfg(float freq)
       AfeAdcDFTCfg(BITM_AFE_DFTCON_HANNINGEN,
                    DFTNUM_1024,
                    DFTIN_SINC3);               //DFT source: Sinc3 result. 16384 * (1/200000) = 81.92mS
-     FCW_Val = (((freq/16000000)*1073741824)+0.5);
+      FCW_Val = (((freq/16000000)*1073741824)+0.5);
       WgFreqReg = (uint32_t)FCW_Val; 
    }
    else/*80KHz < frequency < 200KHz*/
@@ -562,10 +581,10 @@ uint8_t SnsACTest(uint8_t channel)
          /*disconnect RTIA to avoid RC filter discharge*/
          AfeLpTiaCon(CHAN1,pSnsCfg1->Rload,LPTIA_RGAIN_DISCONNECT,pSnsCfg1->Rfilter);
          
-#if EN_2_LEAD
-        AfeSwitchDPNT(SWID_D6_CE1,SWID_P12_CE1,SWID_N7_SE1RLOAD,SWID_T7_SE1RLOAD|SWID_T9);  
+#if EN_2_LEAD 
+         AfeSwitchDPNT(SWID_D6_CE1,SWID_P12_CE1,SWID_N7_SE1RLOAD,SWID_T7_SE1RLOAD|SWID_T9);  
 #else
-        AfeSwitchDPNT(SWID_D6_CE1,SWID_P6_RE1,SWID_N7_SE1RLOAD,SWID_T7_SE1RLOAD|SWID_T9); 
+         AfeSwitchDPNT(SWID_D6_CE1,SWID_P6_RE1,SWID_N7_SE1RLOAD,SWID_T7_SE1RLOAD|SWID_T9); 
 #endif
         
       }
@@ -575,9 +594,32 @@ uint8_t SnsACTest(uint8_t channel)
          AfeLpTiaCon(CHAN0,pSnsCfg0->Rload,LPTIA_RGAIN_DISCONNECT,pSnsCfg0->Rfilter);
          
 #if EN_2_LEAD
-        AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);  
+         if (current_gas_selected == GAS1)
+         {
+            //AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);  
+            AfeSwitchDPNT(SWID_D6_CE1,SWID_P12_CE1,SWID_N7_SE1RLOAD,SWID_T7_SE1RLOAD|SWID_T9); 
+         }
+         else if (current_gas_selected == GAS2)
+         {
+            //AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);  
+            AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);  
+         }
+         else if (current_gas_selected == GAS3)
+         {
+            //AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);  
+            AfeSwitchDPNT(SWID_D6_CE1,SWID_P12_CE1,SWID_N2_AIN1,SWID_T2_AIN1|SWID_T9); 
+         }
+         else if (current_gas_selected == GAS4)
+         {
+            //AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);  
+            AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N3_AIN2,SWID_T3_AIN2|SWID_T9);  
+         }
+         else // default to GAS1
+         {
+            AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);  
+         }
 #else
-        AfeSwitchDPNT(SWID_D5_CE0,SWID_P5_RE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);
+         AfeSwitchDPNT(SWID_D5_CE0,SWID_P5_RE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);
 #endif
         
       }
@@ -773,6 +815,7 @@ void ZreZimCal()
       sumZre += ImpResult[i].Mag * cos(ph_radians);
       sumZim += ImpResult[i].Mag * sin(ph_radians);
    }
+   meas_result.sensor = current_gas_selected;
    meas_result.Z_re = sumZre / (float)testNum;
    meas_result.Z_im = sumZim / (float)testNum;
    meas_result.freq = measurement_freq;
@@ -836,6 +879,29 @@ void UartInit(void)
                 BITM_UART_COMIEN_ELSI);                  // Enable Rx, Tx and Rx buffer full Interrupts
 
    NVIC_EnableIRQ(UART_EVT_IRQn);              // Enable UART interrupt source in NVIC
+   
+   /*Enable UART wakeup intterupt*/
+   //NVIC_EnableIRQ(AFE_EVT3_IRQn);    //UART_RX connected to EXT Int3
+}
+
+/**
+   @brief void Afe_Int3_Handler(void)
+          ======== AFE_INTC and UART_RX intterrupt handler
+   @return none.
+   @note AFE_INTC and UART_RX combined as AFE_INT3, It has no conflict with
+      UART intterrupt(UART_Int_Handler) since they have different priorities.
+      Disable UART_RX wakeup interrupt while MCU is active.
+*/
+void Afe_Int3_Handler(void)
+{
+   /*Enable UART interrupt since it's not retained in hibernate mode*/
+   pADI_UART0->COMIEN |= (BITM_UART_COMIEN_ERBFI | BITM_UART_COMIEN_ELSI);
+   /*clear UARTRX intterrupt status*/
+   pADI_XINT0->CLR = BITM_XINT_CLR_UART_RX_CLR;
+   /*Disable UART_RX wakeup interrupt while MCU is active*/
+   pADI_XINT0->CFG0 &= (~EXTUARTRX);
+   /*update MCU status*/
+   current_state = ADUCM355_IDLE;
 }
 
 void UART_Int_Handler()

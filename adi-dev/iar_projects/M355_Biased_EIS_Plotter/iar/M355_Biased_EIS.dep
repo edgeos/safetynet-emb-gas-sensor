@@ -5,480 +5,183 @@
     <configuration>
         <name>Debug</name>
         <outputs>
-            <file>$PROJ_DIR$\..\..\..\common\ClkLib.c</file>
             <file>$PROJ_DIR$\..\..\..\common\PwrLib.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\RstLib.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\RtcLib.c</file>
-            <file>$PROJ_DIR$\..\Uart_Plotter_Control.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\UrtLib.c</file>
-            <file>$PROJ_DIR$\..\M355_ECSns_DCTest.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeAdcLib.c</file>
-            <file>$PROJ_DIR$\..\M355_ECSns_EIS.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeDacLib.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeTiaLib.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeWdtLib.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\DioLib.c</file>
-            <file>$TOOLKIT_DIR$\inc\c\DLib_Defaults.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\RtcLib.o</file>
-            <file>$TOOLKIT_DIR$\inc\c\stddef.h</file>
-            <file>$PROJ_DIR$\..\..\..\inc\ADuCM355_cdef.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\DioLib.o</file>
-            <file>$PROJ_DIR$\Debug\Obj\PwrLib.o</file>
-            <file>$PROJ_DIR$\Debug\Obj\system.__cstat.et</file>
-            <file>$PROJ_DIR$\..\..\..\common\SpiLib.h</file>
             <file>$PROJ_DIR$\Debug\Obj\M355_ECSns_DCTest.pbi</file>
+            <file>$PROJ_DIR$\..\..\..\common\DmaLib.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\ClkLib.c</file>
+            <file>$PROJ_DIR$\Debug\Obj\DioLib.o</file>
+            <file>$PROJ_DIR$\..\..\..\common\IAR\startup.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\DioLib.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\IAR\system.c</file>
+            <file>$PROJ_DIR$\..\..\..\inc\ADuCM355_cdef.h</file>
+            <file>$PROJ_DIR$\..\M355_ECSns_DCTest.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeTiaLib.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\RstLib.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeWdtLib.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\UrtLib.c</file>
+            <file>$PROJ_DIR$\..\M355_ECSns_EIS.c</file>
+            <file>$PROJ_DIR$\Debug\Obj\RtcLib.o</file>
             <file>$PROJ_DIR$\..\..\..\inc\ADuCM355_device.h</file>
             <file>$TOOLKIT_DIR$\inc\c\DLib_Config_Normal.h</file>
-            <file>$TOOLKIT_DIR$\lib\dl7M_tln.a</file>
-            <file>$PROJ_DIR$\Debug\Obj\AfeAdcLib.pbi</file>
-            <file>$PROJ_DIR$\..\..\..\common\IAR\startup.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\UrtLib.h</file>
-            <file>$PROJ_DIR$\..\..\..\inc\ADuCM355.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\startup.o</file>
-            <file>$PROJ_DIR$\..\..\..\common\DmaLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Defaults.h</file>
             <file>$PROJ_DIR$\Debug\Obj\Uart_Plotter_Control.__cstat.et</file>
-            <file>$PROJ_DIR$\..\..\..\common\CrcLib.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeTiaLib.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\ClkLib.o</file>
-            <file>$PROJ_DIR$\Debug\Obj\AfeDacLib.o</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeAdcLib.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\UrtLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Debug\Obj\AfeTiaLib.o</file>
-            <file>$PROJ_DIR$\Debug\Obj\M355_ECSns_EIS.o</file>
-            <file>$PROJ_DIR$\Debug\Obj\startup.pbi</file>
-            <file>$PROJ_DIR$\Debug\Obj\AfeWdtLib.o</file>
-            <file>$PROJ_DIR$\..\..\..\common\IAR\system.c</file>
-            <file>$TOOLKIT_DIR$\inc\c\ycheck.h</file>
-            <file>$TOOLKIT_DIR$\CMSIS\Core\Include\cmsis_compiler.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\AfeWdtLib.pbi</file>
-            <file>$PROJ_DIR$\Debug\Obj\M355_ECSns_EIS.pbi</file>
-            <file>$TOOLKIT_DIR$\inc\c\stdint.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\UrtLib.pbi</file>
-            <file>$PROJ_DIR$\Debug\Obj\ClkLib.pbi</file>
-            <file>$PROJ_DIR$\Debug\Obj\RtcLib.__cstat.et</file>
-            <file>$PROJ_DIR$\..\..\..\common\FeeLib.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\AfeWdtLib.__cstat.et</file>
-            <file>$TOOLKIT_DIR$\inc\c\ysizet.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\system.pbi</file>
-            <file>$PROJ_DIR$\..\..\..\inc\ADuCM355_bitm.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\iccarm_builtin.h</file>
-            <file>$TOOLKIT_DIR$\CMSIS\Core\Include\core_cm3.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\M355_Biased_EIS.pbd</file>
-            <file>$PROJ_DIR$\..\..\..\inc\startup.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\startup.__cstat.et</file>
-            <file>$TOOLKIT_DIR$\lib\m7M_tl.a</file>
-            <file>$PROJ_DIR$\Debug\Obj\AfeAdcLib.__cstat.et</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeDacLib.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\I2cLib.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\stdbool.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\RstLib.h</file>
+            <file>$PROJ_DIR$\..\Uart_Plotter_Control.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\RtcLib.c</file>
+            <file>$PROJ_DIR$\Debug\Obj\system.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\AfeAdcLib.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\startup.o</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeDacLib.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeAdcLib.c</file>
             <file>$PROJ_DIR$\..\..\..\common\IntLib.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\AfeTiaLib.pbi</file>
-            <file>$PROJ_DIR$\Debug\Obj\ClkLib.__cstat.et</file>
-            <file>$TOOLKIT_DIR$\inc\c\stdio.h</file>
-            <file>$PROJ_DIR$\..\..\..\inc\system.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\PwrLib.h</file>
-            <file>$PROJ_DIR$\..\M355_ECSns_DCTest.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\DioLib.pbi</file>
-            <file>$TOOLKIT_DIR$\CMSIS\Core\Include\cmsis_iccarm.h</file>
-            <file>$PROJ_DIR$\Debug\Exe\M355_Biased_EIS_Plotter.out</file>
-            <file>$PROJ_DIR$\..\..\..\common\RtcLib.h</file>
-            <file>$TOOLKIT_DIR$\config\linker\AnalogDevices\ADuCM355.icf</file>
-            <file>$TOOLKIT_DIR$\lib\rt7M_tl.a</file>
-            <file>$PROJ_DIR$\..\..\..\common\GptLib.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\AfeDacLib.__cstat.et</file>
-            <file>$PROJ_DIR$\..\..\..\common\ClkLib.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\math.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\PwrLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\AfeTiaLib.__cstat.et</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Product.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeWdtLib.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\M355_ECSns_EIS.__cstat.et</file>
             <file>$PROJ_DIR$\Debug\Obj\UrtLib.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\RtcLib.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\AfeTiaLib.pbi</file>
+            <file>$PROJ_DIR$\..\..\..\inc\ADuCM355_typedefs.h</file>
+            <file>$PROJ_DIR$\..\..\..\inc\system.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\RstLib.__cstat.et</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Product_stdlib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\stdlib.h</file>
+            <file>$PROJ_DIR$\..\..\..\inc\adi_types.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\M355_ECSns_DCTest.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\RstLib.o</file>
+            <file>$PROJ_DIR$\..\Uart_Plotter_Control.h</file>
+            <file>$PROJ_DIR$\..\M355_ECSns_EIS.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\system.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\Uart_Plotter_Control.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\RtcLib.__cstat.et</file>
+            <file>$PROJ_DIR$\..\..\..\common\RtcLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_float_setup.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\string.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\Uart_Plotter_Control.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\system.pbi</file>
+            <file>$PROJ_DIR$\Debug\Exe\M355_Biased_EIS_Plotter.out</file>
+            <file>$PROJ_DIR$\Debug\Obj\RstLib.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\M355_ECSns_DCTest.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\AfeTiaLib.o</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeTiaLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\ysizet.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\PwrLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\AfeDacLib.__cstat.et</file>
+            <file>$TOOLKIT_DIR$\CMSIS\Core\Include\cmsis_iccarm.h</file>
+            <file>$TOOLKIT_DIR$\config\linker\AnalogDevices\ADuCM355.icf</file>
+            <file>$PROJ_DIR$\Debug\Obj\DioLib.__cstat.et</file>
+            <file>$TOOLKIT_DIR$\CMSIS\Core\Include\cmsis_version.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\I2cLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\stddef.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\GptLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\stdbool.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\PwrLib.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\AfeAdcLib.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\ClkLib.__cstat.et</file>
+            <file>$PROJ_DIR$\..\..\..\common\ClkLib.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\PwrLib.pbi</file>
+            <file>$TOOLKIT_DIR$\lib\dl7M_tln.a</file>
+            <file>$PROJ_DIR$\Debug\Obj\PwrLib.o</file>
+            <file>$TOOLKIT_DIR$\lib\rt7M_tl.a</file>
+            <file>$PROJ_DIR$\..\..\..\inc\ADuCM355.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\UrtLib.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\SpiLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Product_string.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\RstLib.h</file>
             <file>$PROJ_DIR$\..\..\..\inc\ADuCM355_Peri.h</file>
             <file>$PROJ_DIR$\Debug\Obj\AfeDacLib.pbi</file>
-            <file>$PROJ_DIR$\Debug\Obj\M355_ECSns_EIS.__cstat.et</file>
             <file>$TOOLKIT_DIR$\inc\c\yvals.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\DioLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Debug\Obj\PwrLib.pbi</file>
-            <file>$TOOLKIT_DIR$\CMSIS\Core\Include\cmsis_version.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\AfeAdcLib.o</file>
             <file>$PROJ_DIR$\..\..\..\common\DioLib.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\DLib_Product_string.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\stdlib.h</file>
-            <file>$PROJ_DIR$\..\Uart_Plotter_Control.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\DLib_Product_stdlib.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\RstLib.pbi</file>
-            <file>$PROJ_DIR$\Debug\Obj\RstLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Debug\Obj\Uart_Plotter_Control.pbi</file>
-            <file>$TOOLKIT_DIR$\inc\c\DLib_float_setup.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\RtcLib.pbi</file>
-            <file>$TOOLKIT_DIR$\inc\c\string.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\M355_ECSns_DCTest.o</file>
-            <file>$PROJ_DIR$\..\M355_ECSns_EIS.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\M355_ECSns_DCTest.__cstat.et</file>
-            <file>$PROJ_DIR$\..\..\..\inc\ADuCM355_typedefs.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\Uart_Plotter_Control.o</file>
-            <file>$TOOLKIT_DIR$\inc\c\DLib_Product.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\system.o</file>
-            <file>$PROJ_DIR$\..\..\..\inc\adi_types.h</file>
-            <file>$PROJ_DIR$\Debug\Obj\AfeTiaLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Debug\Obj\RstLib.o</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeWdtLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\math.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\DioLib.pbi</file>
+            <file>$TOOLKIT_DIR$\inc\c\stdio.h</file>
+            <file>$PROJ_DIR$\..\M355_ECSns_DCTest.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\ClkLib.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\AfeAdcLib.__cstat.et</file>
+            <file>$PROJ_DIR$\..\..\..\inc\ADuCM355_bitm.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\startup.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\ClkLib.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\AfeWdtLib.o</file>
+            <file>$PROJ_DIR$\Debug\Obj\M355_ECSns_EIS.pbi</file>
+            <file>$TOOLKIT_DIR$\inc\c\iccarm_builtin.h</file>
+            <file>$TOOLKIT_DIR$\CMSIS\Core\Include\cmsis_compiler.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\stdint.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\AfeWdtLib.pbi</file>
+            <file>$PROJ_DIR$\Debug\Obj\M355_Biased_EIS.pbd</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeDacLib.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\AfeDacLib.o</file>
+            <file>$TOOLKIT_DIR$\inc\c\ycheck.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\M355_ECSns_EIS.o</file>
+            <file>$TOOLKIT_DIR$\CMSIS\Core\Include\core_cm3.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\UrtLib.pbi</file>
+            <file>$PROJ_DIR$\..\..\..\common\FeeLib.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\CrcLib.h</file>
+            <file>$PROJ_DIR$\Debug\Obj\UrtLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\AfeWdtLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Debug\Obj\startup.pbi</file>
+            <file>$TOOLKIT_DIR$\lib\m7M_tl.a</file>
+            <file>$PROJ_DIR$\..\..\..\inc\startup.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeAdcLib.h</file>
         </outputs>
         <file>
             <name>[ROOT_NODE]</name>
             <outputs>
                 <tool>
                     <name>ILINK</name>
-                    <file> 76</file>
+                    <file> 53</file>
                 </tool>
             </outputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\ClkLib.c</name>
-            <outputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 34</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 49</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 69</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 82 28 16 47 43 89 13 23 110 22 108 55 57 92 44 75 56</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 16 89 47 92 28 55 13 22 57 43 23 110 108 82 44 75 56</file>
-                </tool>
-            </inputs>
         </file>
         <file>
             <name>$PROJ_DIR$\..\..\..\common\PwrLib.c</name>
             <outputs>
                 <tool>
                     <name>ICCARM</name>
-                    <file> 18</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 91</file>
+                    <file> 75</file>
                 </tool>
                 <tool>
                     <name>__cstat</name>
-                    <file> 84</file>
+                    <file> 59</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 73</file>
                 </tool>
             </outputs>
             <inputs>
                 <tool>
                     <name>ICCARM</name>
-                    <file> 72 28 16 47 43 89 13 23 110 22 108 55 57 92 44 75 56 112 65</file>
+                    <file> 69 77 8 99 104 84 18 17 29 16 35 92 106 64 98 61 97 40 68</file>
                 </tool>
                 <tool>
                     <name>BICOMP</name>
-                    <file> 110 57 28 43 47 112 22 23 108 16 55 89 13 44 75 56 72 92 65</file>
+                    <file> 29 106 77 104 99 40 16 17 35 8 92 84 18 98 61 97 69 64 68</file>
                 </tool>
             </inputs>
         </file>
         <file>
-            <name>$PROJ_DIR$\..\..\..\common\RstLib.c</name>
+            <name>$PROJ_DIR$\..\..\..\common\ClkLib.c</name>
             <outputs>
                 <tool>
                     <name>ICCARM</name>
-                    <file> 114</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 99</file>
+                    <file> 94</file>
                 </tool>
                 <tool>
                     <name>__cstat</name>
-                    <file> 100</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 66 28 16 47 43 89 13 23 110 22 108 55 57 92 44 75 56 94</file>
+                    <file> 71</file>
                 </tool>
                 <tool>
                     <name>BICOMP</name>
-                    <file> 110 28 55 47 94 16 43 56 89 22 57 23 108 44 66 13 92 75</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\RtcLib.c</name>
-            <outputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 14</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 103</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 50</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 77 28 16 47 43 89 13 23 110 22 108 55 57 92 44 75 56</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 22 92 47 28 57 13 16 55 89 75 77 43 23 110 108 44 56</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\Uart_Plotter_Control.c</name>
-            <outputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 109</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 101</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 31</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 104 43 89 13 23 110 53 95 97 47 106 86 36 28 16 22 108 55 57 92 44 75 56 112 65 63 33 115 82 94 30 51 80 64 67 72 66 77 20 27 32 70 83 102</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 112 115 16 43 23 72 89 95 51 27 47 28 53 110 106 70 63 94 64 77 55 92 56 97 13 86 83 36 33 82 30 80 67 66 20 32 22 57 108 44 102 104 75 65</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\UrtLib.c</name>
-            <outputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 85</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 48</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 37</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 27 28 16 47 43 89 13 23 110 22 108 55 57 92 44 75 56</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 47 89 16 92 55 13 28 22 57 43 23 110 108 27 44 75 56</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\M355_ECSns_DCTest.c</name>
-            <outputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 105</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 21</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 107</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 73 86 36 28 16 47 43 89 13 23 110 22 108 55 57 92 44 75 56 112 65 63 33 115 82 94 30 51 80 64 67 72 66 77 20 27 32 70 53</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 28 57 67 92 47 33 53 30 20 43 13 70 36 82 80 66 32 22 75 65 112 86 63 115 94 51 64 72 77 27 16 55 89 23 110 108 44 56 73</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\AfeAdcLib.c</name>
-            <outputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 93</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 25</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 62</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 36 28 16 47 43 89 13 23 110 22 108 55 57 92 44 75 56 112 65</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 22 112 23 108 47 44 28 57 43 110 56 89 36 16 55 13 92 75 65</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\M355_ECSns_EIS.c</name>
-            <outputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 39</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 46</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 88</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 70 43 89 13 23 110 53 96 98 15 104 95 106 86 36 28 16 47 22 108 55 57 92 44 75 56 112 65 63 33 115 82 94 30 51 80 64 67 72 66 77 20 27 32 83 102 73 97</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 77 47 94 110 92 53 43 55 28 106 89 95 63 64 15 97 23 70 115 51 72 27 112 16 108 96 104 73 13 98 86 83 36 33 82 30 80 67 66 20 32 22 57 75 65 44 56 102</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\AfeDacLib.c</name>
-            <outputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 35</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 87</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 81</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 63 28 16 47 43 89 13 23 110 22 108 55 57 92 44 75 56 112 65</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 28 43 57 110 47 112 22 23 108 16 55 89 13 44 75 56 63 92 65</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\AfeTiaLib.c</name>
-            <outputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 38</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 68</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 113</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 33 28 16 47 43 89 13 23 110 22 108 55 57 92 44 75 56 112 65</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 112 22 57 28 23 108 47 44 16 55 43 110 56 89 33 13 92 75 65</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\AfeWdtLib.c</name>
-            <outputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 41</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 45</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 52</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 115 28 16 47 43 89 13 23 110 22 108 55 57 92 44 75 56 112 65</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 22 112 23 108 47 57 28 43 110 16 55 89 13 44 75 56 115 92 65</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\DioLib.c</name>
-            <outputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 17</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 74</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
                     <file> 90</file>
                 </tool>
             </outputs>
             <inputs>
                 <tool>
                     <name>ICCARM</name>
-                    <file> 94 28 16 47 43 89 13 23 110 22 108 55 57 92 44 75 56</file>
+                    <file> 72 77 8 99 104 84 18 17 29 16 35 92 106 64 98 61 97</file>
                 </tool>
                 <tool>
                     <name>BICOMP</name>
-                    <file> 89 28 43 56 57 110 22 23 108 47 44 16 55 13 92 75 94</file>
+                    <file> 8 84 99 64 77 92 18 16 106 104 17 29 35 72 98 61 97</file>
                 </tool>
             </inputs>
         </file>
@@ -487,25 +190,52 @@
             <outputs>
                 <tool>
                     <name>ICCARM</name>
-                    <file> 29</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 40</file>
+                    <file> 24</file>
                 </tool>
                 <tool>
                     <name>__cstat</name>
-                    <file> 60</file>
+                    <file> 93</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 112</file>
                 </tool>
             </outputs>
             <inputs>
                 <tool>
                     <name>ICCARM</name>
-                    <file> 59 112 47 43 89 13 23 110 65 71 15 53 28 16 22 108 55 57 92 44 75 56 27 67 94</file>
+                    <file> 114 40 99 104 84 18 17 29 68 36 66 58 77 8 16 35 92 106 64 98 61 97 78 27 85</file>
                 </tool>
                 <tool>
                     <name>BICOMP</name>
-                    <file> 57 65 23 43 28 67 112 56 89 71 110 22 108 47 44 27 94 13 15 53 16 55 92 75 59</file>
+                    <file> 106 68 17 104 77 27 40 97 84 36 29 16 35 99 98 78 85 18 66 58 8 92 64 61 114</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\DioLib.c</name>
+            <outputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 4</file>
+                </tool>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 63</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 87</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 85 77 8 99 104 84 18 17 29 16 35 92 106 64 98 61 97</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 84 77 104 97 106 29 16 17 35 99 98 8 92 18 64 61 85</file>
                 </tool>
             </inputs>
         </file>
@@ -514,25 +244,295 @@
             <outputs>
                 <tool>
                     <name>ICCARM</name>
-                    <file> 111</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 54</file>
+                    <file> 45</file>
                 </tool>
                 <tool>
                     <name>__cstat</name>
-                    <file> 19</file>
+                    <file> 22</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 52</file>
                 </tool>
             </outputs>
             <inputs>
                 <tool>
                     <name>ICCARM</name>
-                    <file> 47 43 89 13 23 110 71 15 53 112 65 28 16 22 108 55 57 92 44 75 56</file>
+                    <file> 99 104 84 18 17 29 36 66 58 40 68 77 8 16 35 92 106 64 98 61 97</file>
                 </tool>
                 <tool>
                     <name>BICOMP</name>
-                    <file> 28 23 53 65 57 92 89 110 15 43 22 108 47 71 13 112 16 55 44 75 56</file>
+                    <file> 77 17 58 68 106 64 84 29 66 104 16 35 99 36 18 40 8 92 98 61 97</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\M355_ECSns_DCTest.c</name>
+            <outputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 41</file>
+                </tool>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 55</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 1</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 89 82 115 77 8 99 104 84 18 17 29 16 35 92 106 64 98 61 97 40 68 102 57 30 72 85 2 108 67 65 27 69 81 48 79 78 109 88 58</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 77 106 27 64 99 57 58 2 79 104 18 88 115 72 67 81 109 16 61 68 40 82 102 30 85 108 65 69 48 78 8 92 84 17 29 35 98 97 89</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\AfeTiaLib.c</name>
+            <outputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 56</file>
+                </tool>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 28</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 34</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 57 77 8 99 104 84 18 17 29 16 35 92 106 64 98 61 97 40 68</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 40 16 106 77 17 35 99 98 8 92 104 29 97 84 57 18 64 61 68</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\RstLib.c</name>
+            <outputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 42</file>
+                </tool>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 37</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 54</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 81 77 8 99 104 84 18 17 29 16 35 92 106 64 98 61 97 85</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 29 77 92 99 85 8 104 97 84 16 106 17 35 98 81 18 64 61</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\AfeWdtLib.c</name>
+            <outputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 95</file>
+                </tool>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 111</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 100</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 30 77 8 99 104 84 18 17 29 16 35 92 106 64 98 61 97 40 68</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 16 40 17 35 99 106 77 104 29 8 92 84 18 98 61 97 30 64 68</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\UrtLib.c</name>
+            <outputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 32</file>
+                </tool>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 110</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 107</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 78 77 8 99 104 84 18 17 29 16 35 92 106 64 98 61 97</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 99 84 8 64 92 18 77 16 106 104 17 29 35 78 98 61 97</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\M355_ECSns_EIS.c</name>
+            <outputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 105</file>
+                </tool>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 31</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 96</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 88 104 84 18 17 29 58 39 38 66 50 80 44 82 115 77 8 99 16 35 92 106 64 98 61 97 40 68 102 57 30 72 85 2 108 67 65 27 69 81 48 79 78 109 86 49 89 43</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 48 99 85 29 64 58 104 92 77 44 84 80 102 65 66 43 17 88 30 108 69 78 40 8 35 39 50 89 18 38 82 86 115 57 72 2 67 27 81 79 109 16 106 61 68 98 97 49</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\Uart_Plotter_Control.c</name>
+            <outputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 46</file>
+                </tool>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 19</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 51</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 50 104 84 18 17 29 58 80 43 99 44 82 115 77 8 16 35 92 106 64 98 61 97 40 68 102 57 30 72 85 2 108 67 65 27 69 81 48 79 78 109 88 86 49</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 40 30 8 104 17 69 84 80 108 78 99 77 58 29 44 88 102 85 65 48 92 64 97 43 18 82 86 115 57 72 2 67 27 81 79 109 16 106 35 98 49 50 61 68</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\RtcLib.c</name>
+            <outputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 15</file>
+                </tool>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 47</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 33</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 48 77 8 99 104 84 18 17 29 16 35 92 106 64 98 61 97</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 16 64 99 77 106 18 8 92 84 61 48 104 17 29 35 98 97</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\AfeDacLib.c</name>
+            <outputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 103</file>
+                </tool>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 60</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 83</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 102 77 8 99 104 84 18 17 29 16 35 92 106 64 98 61 97 40 68</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 77 104 106 29 99 40 16 17 35 8 92 84 18 98 61 97 102 64 68</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\AfeAdcLib.c</name>
+            <outputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 70</file>
+                </tool>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 91</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 23</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 115 77 8 99 104 84 18 17 29 16 35 92 106 64 98 61 97 40 68</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 16 40 17 35 99 98 77 106 104 29 97 84 115 8 92 18 64 61 68</file>
                 </tool>
             </inputs>
         </file>
@@ -541,7 +541,7 @@
             <inputs>
                 <tool>
                     <name>ILINK</name>
-                    <file> 78 93 35 38 41 34 17 105 39 18 114 14 29 111 109 85 79 61 24</file>
+                    <file> 62 70 103 56 95 94 4 41 105 75 42 15 24 45 46 32 76 113 74</file>
                 </tool>
             </inputs>
         </file>
@@ -549,378 +549,133 @@
     <configuration>
         <name>Release</name>
         <outputs>
-            <file>$PROJ_DIR$\..\..\..\common\ClkLib.c</file>
             <file>$PROJ_DIR$\..\..\..\common\PwrLib.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\RstLib.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\RtcLib.c</file>
-            <file>$PROJ_DIR$\..\Uart_Plotter_Control.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\UrtLib.c</file>
-            <file>$PROJ_DIR$\..\M355_ECSns_DCTest.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeAdcLib.c</file>
-            <file>$PROJ_DIR$\..\M355_ECSns_EIS.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeDacLib.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeTiaLib.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeWdtLib.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\DioLib.c</file>
-            <file>$TOOLKIT_DIR$\inc\c\DLib_Defaults.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\stddef.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\DLib_Config_Normal.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\ClkLib.c</file>
             <file>$PROJ_DIR$\..\..\..\common\IAR\startup.c</file>
-            <file>$PROJ_DIR$\..\..\..\common\UrtLib.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeTiaLib.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeAdcLib.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\DioLib.c</file>
             <file>$PROJ_DIR$\..\..\..\common\IAR\system.c</file>
-            <file>$TOOLKIT_DIR$\inc\c\ycheck.h</file>
-            <file>$PROJ_DIR$\Release\Obj\RtcLib.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\system.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\Uart_Plotter_Control.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\M355_ECSns_DCTest.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\AfeTiaLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\M355_ECSns_EIS.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\AfeAdcLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\M355_ECSns_DCTest.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\DioLib.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\AfeDacLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\Uart_Plotter_Control.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\startup.pbi</file>
-            <file>$TOOLKIT_DIR$\inc\c\stdint.h</file>
-            <file>$PROJ_DIR$\Release\Obj\AfeWdtLib.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\system.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\ClkLib.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\AfeTiaLib.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\AfeAdcLib.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\UrtLib.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\M355_ECSns_EIS.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\UrtLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\RstLib.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\PwrLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\RtcLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\ClkLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\startup.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\AfeWdtLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Exe\M355_Biased_EIS.out</file>
-            <file>$PROJ_DIR$\Release\Obj\RstLib.__cstat.et</file>
-            <file>$PROJ_DIR$\Release\Obj\AfeDacLib.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\PwrLib.pbi</file>
-            <file>$PROJ_DIR$\Release\Obj\DioLib.__cstat.et</file>
-            <file>$TOOLKIT_DIR$\inc\c\ysizet.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\AfeDacLib.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\RstLib.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\stdio.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\PwrLib.h</file>
-            <file>$PROJ_DIR$\..\M355_ECSns_DCTest.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\RtcLib.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\ClkLib.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\math.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\yvals.h</file>
-            <file>$PROJ_DIR$\..\..\..\common\DioLib.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\DLib_Product_string.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\stdlib.h</file>
-            <file>$PROJ_DIR$\..\Uart_Plotter_Control.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\DLib_Product_stdlib.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\DLib_float_setup.h</file>
-            <file>$TOOLKIT_DIR$\inc\c\string.h</file>
-            <file>$PROJ_DIR$\..\M355_ECSns_EIS.h</file>
+            <file>$PROJ_DIR$\..\M355_ECSns_DCTest.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeTiaLib.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\RstLib.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeWdtLib.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\UrtLib.c</file>
+            <file>$PROJ_DIR$\..\M355_ECSns_EIS.c</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Config_Normal.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Defaults.h</file>
+            <file>$PROJ_DIR$\..\Uart_Plotter_Control.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\RtcLib.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeDacLib.c</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeAdcLib.c</file>
             <file>$TOOLKIT_DIR$\inc\c\DLib_Product.h</file>
             <file>$PROJ_DIR$\..\..\..\common\AfeWdtLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Product_stdlib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\stdlib.h</file>
+            <file>$PROJ_DIR$\..\Uart_Plotter_Control.h</file>
+            <file>$PROJ_DIR$\..\M355_ECSns_EIS.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\RtcLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_float_setup.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\string.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeTiaLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\ysizet.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\stddef.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\PwrLib.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\ClkLib.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\UrtLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\DLib_Product_string.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\RstLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\yvals.h</file>
+            <file>$PROJ_DIR$\..\..\..\common\DioLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\math.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\stdio.h</file>
+            <file>$PROJ_DIR$\..\M355_ECSns_DCTest.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\stdint.h</file>
+            <file>$PROJ_DIR$\Release\Obj\system.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\DioLib.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\AfeDacLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\M355_ECSns_DCTest.__cstat.et</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeDacLib.h</file>
+            <file>$TOOLKIT_DIR$\inc\c\ycheck.h</file>
+            <file>$PROJ_DIR$\Release\Obj\RtcLib.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\Uart_Plotter_Control.__cstat.et</file>
+            <file>$PROJ_DIR$\..\..\..\common\AfeAdcLib.h</file>
+            <file>$PROJ_DIR$\Release\Obj\ClkLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\RstLib.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\RstLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\AfeWdtLib.pbi</file>
+            <file>$PROJ_DIR$\Release\Exe\M355_Biased_EIS.out</file>
+            <file>$PROJ_DIR$\Release\Obj\AfeAdcLib.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\M355_ECSns_EIS.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\UrtLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\UrtLib.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\AfeAdcLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\ClkLib.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\AfeTiaLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\AfeWdtLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\startup.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\RtcLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\M355_ECSns_DCTest.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\Uart_Plotter_Control.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\system.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\PwrLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\DioLib.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\startup.__cstat.et</file>
+            <file>$PROJ_DIR$\Release\Obj\PwrLib.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\AfeTiaLib.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\M355_ECSns_EIS.pbi</file>
+            <file>$PROJ_DIR$\Release\Obj\AfeDacLib.pbi</file>
         </outputs>
         <file>
             <name>[ROOT_NODE]</name>
             <outputs>
                 <tool>
                     <name>ILINK</name>
-                    <file> 49</file>
+                    <file> 53</file>
                 </tool>
             </outputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\ClkLib.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 37</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 46</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 61</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 61</file>
-                </tool>
-            </inputs>
         </file>
         <file>
             <name>$PROJ_DIR$\..\..\..\common\PwrLib.c</name>
             <outputs>
                 <tool>
-                    <name>BICOMP</name>
-                    <file> 52</file>
+                    <name>__cstat</name>
+                    <file> 67</file>
                 </tool>
                 <tool>
-                    <name>__cstat</name>
-                    <file> 44</file>
+                    <name>BICOMP</name>
+                    <file> 70</file>
                 </tool>
             </outputs>
             <inputs>
                 <tool>
                     <name>ICCARM</name>
-                    <file> 58</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 58</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\RstLib.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 43</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 50</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 56</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 56 64</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\RtcLib.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 22</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 45</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 60</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\Uart_Plotter_Control.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 32</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 24</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 70 21 63 13 15 72 54 65 67 34 71</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 21 15 65 54 72 71 57 67 63 13 34 62 69 70</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\UrtLib.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 40</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 42</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 17</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\M355_ECSns_DCTest.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 25</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
                     <file> 29</file>
                 </tool>
-            </outputs>
-            <inputs>
                 <tool>
-                    <name>ICCARM</name>
+                    <name>BICOMP</name>
+                    <file> 29</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\ClkLib.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 49</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
                     <file> 59</file>
                 </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 15 63 72 57 21 54 13 59</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\AfeAdcLib.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 39</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 28</file>
-                </tool>
             </outputs>
             <inputs>
                 <tool>
                     <name>ICCARM</name>
-                    <file> 19</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 19</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\M355_ECSns_EIS.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 41</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 27</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 57 21 63 13 15 72 54 66 68 14 70 65 71</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 63 65 71 13 21 62 14 67 68 54 66 70 59 15 72 57 69 34</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\AfeDacLib.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 51</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 31</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 55</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 55</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\AfeTiaLib.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 38</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 26</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 18</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 18</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\AfeWdtLib.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 35</file>
-                </tool>
-                <tool>
-                    <name>__cstat</name>
-                    <file> 48</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 73</file>
-                </tool>
-                <tool>
-                    <name>BICOMP</name>
-                    <file> 73</file>
-                </tool>
-            </inputs>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\..\common\DioLib.c</name>
-            <outputs>
-                <tool>
-                    <name>BICOMP</name>
                     <file> 30</file>
                 </tool>
                 <tool>
-                    <name>__cstat</name>
-                    <file> 53</file>
-                </tool>
-            </outputs>
-            <inputs>
-                <tool>
-                    <name>ICCARM</name>
-                    <file> 64</file>
-                </tool>
-                <tool>
                     <name>BICOMP</name>
-                    <file> 64</file>
+                    <file> 30</file>
                 </tool>
             </inputs>
         </file>
@@ -928,31 +683,276 @@
             <name>$PROJ_DIR$\..\..\..\common\IAR\startup.c</name>
             <outputs>
                 <tool>
-                    <name>BICOMP</name>
-                    <file> 33</file>
+                    <name>__cstat</name>
+                    <file> 69</file>
                 </tool>
                 <tool>
-                    <name>__cstat</name>
-                    <file> 47</file>
+                    <name>BICOMP</name>
+                    <file> 62</file>
                 </tool>
             </outputs>
         </file>
         <file>
-            <name>$PROJ_DIR$\..\..\..\common\IAR\system.c</name>
+            <name>$PROJ_DIR$\..\..\..\common\DioLib.c</name>
             <outputs>
                 <tool>
-                    <name>BICOMP</name>
-                    <file> 23</file>
+                    <name>__cstat</name>
+                    <file> 68</file>
                 </tool>
                 <tool>
-                    <name>__cstat</name>
-                    <file> 36</file>
+                    <name>BICOMP</name>
+                    <file> 41</file>
                 </tool>
             </outputs>
             <inputs>
                 <tool>
                     <name>ICCARM</name>
-                    <file> 34 21 63 13 15 72</file>
+                    <file> 35</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 35</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\IAR\system.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 66</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 40</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 39 45 34 12 11 17</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\M355_ECSns_DCTest.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 43</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 64</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 38</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 11 34 17 37 45 27 12 38</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\AfeTiaLib.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 60</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 71</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 26</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 26</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\RstLib.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 51</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 50</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 33</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 33 35</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\AfeWdtLib.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 61</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 52</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 18</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 18</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\UrtLib.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 56</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 57</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 31</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\M355_ECSns_EIS.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 55</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 72</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 37 45 34 12 11 17 27 20 19 28 25 32 22</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 34 32 22 12 45 36 28 21 19 27 20 25 38 11 17 37 24 39</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\Uart_Plotter_Control.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 47</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 65</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 25 45 34 12 11 17 27 32 21 39 22</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 45 11 32 27 17 22 37 21 34 12 39 36 24 25</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\RtcLib.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 63</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 46</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 23</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\AfeDacLib.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 42</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 73</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 44</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 44</file>
+                </tool>
+            </inputs>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\common\AfeAdcLib.c</name>
+            <outputs>
+                <tool>
+                    <name>__cstat</name>
+                    <file> 58</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 54</file>
+                </tool>
+            </outputs>
+            <inputs>
+                <tool>
+                    <name>ICCARM</name>
+                    <file> 48</file>
+                </tool>
+                <tool>
+                    <name>BICOMP</name>
+                    <file> 48</file>
                 </tool>
             </inputs>
         </file>

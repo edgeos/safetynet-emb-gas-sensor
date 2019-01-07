@@ -187,7 +187,7 @@ class AppWindow(QtWidgets.QDialog):
                 plot_continue = False
             
             # get unique freqs from dataframe
-            unique_freqs = self.df['FREQ_HZ'].unique().tolist()
+            unique_freqs = np.sort(self.df['FREQ_HZ'].unique()).tolist()
             freq_matches = set(unique_freqs).intersection(self.unique_freqs)
             if len(freq_matches) != len(unique_freqs):
                 self.unique_freqs = unique_freqs
@@ -254,7 +254,7 @@ class AppWindow(QtWidgets.QDialog):
             self.save_zimag_data_file = time_str + '_z_imag.im'
             
             # start recording to text files
-            unique_freqs = self.df['FREQ_HZ'].unique()
+            unique_freqs = np.sort(self.df['FREQ_HZ'].unique())
             unique_freqs = unique_freqs.tolist()
             with open(self.save_zreal_data_file,'a',newline='') as f:
                 f.write('UTC_Time' + '\t')
@@ -295,7 +295,7 @@ class AppWindow(QtWidgets.QDialog):
             self.prev_zlog_time = self.current_zlog_time
             if self.avgMeasurementCount >= self.avgMeasurementNum:
                 # calculate avg vals for each unique freq for last Num measurements
-                unique_freqs = self.df['FREQ_HZ'].unique()
+                unique_freqs = np.sort(self.df['FREQ_HZ'].unique())
                 utc_time = self.df['UTC_TIME'][-1:].tolist()
                 avg_z_r = np.zeros(shape=(1,max(unique_freqs.shape)))
                 avg_z_i = np.zeros(shape=(1,max(unique_freqs.shape)))
@@ -335,6 +335,13 @@ class AppWindow(QtWidgets.QDialog):
             time.sleep(0.00001)
         
         self.df.loc[len(self.df.index)] = data
+
+        # only plot the last 5 minutes, delete older data
+        if len(self.df.index) > 2:
+            time_stored = self.df['UTC_TIME'][-1:] - self.df['UTC_TIME'][0]
+            if time_stored.tolist()[0] >= 300:
+                self.df = self.df.drop(0)
+                self.df.index = self.df.index - 1
 
         # don't start averaging / recording z-data until a single sweep is done
         if self.update_smith is True:
@@ -551,7 +558,7 @@ class AppWindow(QtWidgets.QDialog):
 
         # convert to real/imag impedance for smith chart
         real_z = mag*math.cos(math.radians(phase))
-        imag_z = -mag*math.sin(math.radians(phase)) # invert sign per Rad's request
+        imag_z = mag*math.sin(math.radians(phase))
         data.append(real_z)
         data.append(imag_z)
 

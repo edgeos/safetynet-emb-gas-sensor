@@ -107,6 +107,15 @@ typedef struct
    float   Cap;
 }ImpResult_t;
 
+/**@brief Gas Sensor Types */
+typedef enum
+{
+    GAS1 = 1 << 0,            
+    GAS2 = 1 << 1,
+    GAS3 = 1 << 2,
+    GAS4 = 1 << 3
+} gas_sensor_t;
+
 /*=========================== Function declarations ====================*/
 void SendMeasurement();
 void ConfigImpMeasurement();

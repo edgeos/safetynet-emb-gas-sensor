@@ -2090,6 +2090,9 @@
             <name>$PROJ_DIR$\..\..\..\common\DioLib.c</name>
         </file>
         <file>
+            <name>$PROJ_DIR$\..\..\..\common\IntLib.c</name>
+        </file>
+        <file>
             <name>$PROJ_DIR$\..\..\..\common\PwrLib.c</name>
         </file>
         <file>

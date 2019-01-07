@@ -54,7 +54,7 @@ class ADuCM355_Plotter:
             t2 = "Phase"
 
         # get unique freqs from dataframe
-        self.unique_freqs = df['FREQ_HZ'].unique()
+        self.unique_freqs = np.sort(df['FREQ_HZ'].unique())
         latest_data_inds = [df.loc[df['FREQ_HZ']==val].index.values[-1] for val in self.unique_freqs]
         if len(latest_data_inds) == 0:
             return
@@ -83,7 +83,7 @@ class ADuCM355_Plotter:
         T = self.ui.avgTimeSpinbox_tab4.value()
         
         # check time between last 2 measurements on a frequency, see if it will meet the N measurements in T time criteria
-        self.unique_freqs = df['FREQ_HZ'].unique()
+        self.unique_freqs = np.sort(df['FREQ_HZ'].unique())
         latest_data_inds = df.loc[df['FREQ_HZ']==self.unique_freqs[-1]].index.values
         if latest_data_inds.size <= 1:
             self.ui.passLabel.setStyleSheet("color: rgb(255,0,0)")
@@ -166,7 +166,7 @@ class ADuCM355_Plotter:
         return (cumsum[N:] - cumsum[:-N]) / float(N)
 
     def update_plot_inds(self, df, freq_ind):
-        self.unique_freqs = df['FREQ_HZ'].unique()
+        self.unique_freqs = np.sort(df['FREQ_HZ'].unique())
         #latest_data_inds = [df.loc[df['FREQ_HZ']==val].index.values[-1] for val in self.unique_freqs]
         self.row_inds = df.index[df['FREQ_HZ'] == self.unique_freqs[freq_ind]].tolist()
         self.x_time = df['UTC_TIME'][self.row_inds].values.tolist()
@@ -211,7 +211,7 @@ class ADuCM355_Plotter:
     
     def update_s11_plot(self, df):
         # get unique freqs from dataframe
-        self.unique_freqs = df['FREQ_HZ'].unique()
+        self.unique_freqs = np.sort(df['FREQ_HZ'].unique())
         latest_data_inds = [df.loc[df['FREQ_HZ']==val].index.values[-1] for val in self.unique_freqs]
         if len(latest_data_inds) == 0:
             return
@@ -226,7 +226,7 @@ class ADuCM355_Plotter:
 
         # convert to real/imag impedance for smith chart
         real_z = np.asarray([m*math.cos(math.radians(ph)) for m,ph in zip(mag,phase)])
-        imag_z = -np.asarray([m*math.sin(math.radians(ph)) for m,ph in zip(mag,phase)])
+        imag_z = np.asarray([m*math.sin(math.radians(ph)) for m,ph in zip(mag,phase)])
         z = real_z + imag_z * 1j
 
         # update impedance Z0
