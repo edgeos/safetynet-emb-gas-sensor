@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 - 2018, Nordic Semiconductor ASA
+ * Copyright (c) 2016 - 2018, Nordic Semiconductor ASA
  *
  * All rights reserved.
  *
@@ -37,64 +37,59 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef ADUCM355_CONTROLLER_H__
-#define ADUCM355_CONTROLLER_H__
-
-#include <stdint.h>
-#include "nrf.h"
+#ifndef MATCHBOX_V1_H
+#define MATCHBOX_V1_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#pragma pack(1) 
+#include "nrf_gpio.h"
 
-/**@brief Gas Sensor State */
-typedef enum
-{
-    IDLE,             // aducm355 in sleep state
-    PRIMING,          // aducm355 in sleep state, heaters turned on
-    PRIMED,           // aducm355 in idle state, heaters in ready state
-    MEASURING,        // aducm355 in measure state, heaters still on
-    MEASUREMENT_DONE  // aducm355 in idle state, heaters off, algorithms
-} gas_sensing_state_t;
+// LEDs definitions
+#define LEDS_NUMBER                2
+#define LED_1                      NRF_GPIO_PIN_MAP(0,27)
+#define LED_2                      NRF_GPIO_PIN_MAP(0,28)
+#define LED_START                  LED_1
+#define LED_STOP                   LED_2
+#define LEDS_ACTIVE_STATE          1
+#define LEDS_LIST                  { LED_1, LED_2 }
+#define LEDS_INV_MASK              LEDS_MASK
+#define BSP_LED_0                  LED_1
+#define BSP_LED_1                  LED_2
 
-/**@brief Gas Sensor Types */
-typedef enum
-{
-    GAS1 = 1 << 0,            
-    GAS2 = 1 << 1,
-    GAS3 = 1 << 2,
-    GAS4 = 1 << 3,
-    ALL  = 0xff
-} gas_sensor_t;
+// Buttons definitions; needed for boards.c
+#define BUTTONS_NUMBER             1
+#define BUTTONS_ACTIVE_STATE       0
+#define BUTTON_1                   NRF_GPIO_PIN_MAP(0,11)
+#define BUTTON_PULL                NRF_GPIO_PIN_PULLUP
+#define BUTTONS_LIST               { BUTTON_1 }
 
-typedef struct
-{ 
-   gas_sensor_t gas_sensor;
-   uint8_t freq;
-   float Z_re;
-   float Z_im;
-   float gas_ppm;
-} gas_sensor_results_t;
+// Buzzer / Alarm
+#define BUZZER_GPIO                NRF_GPIO_PIN_MAP(0,16)
 
-/**@brief Initialize ADuCM355 Uart Interface
- *
- */
-uint32_t init_aducm355_iface(void);
+// I2C for BME280 + M24M02
+#define SCL_PIN                    NRF_GPIO_PIN_MAP(0,25)  
+#define SDA_PIN                    NRF_GPIO_PIN_MAP(0,26)    
 
-uint32_t start_aducm355_measurement_seq(gas_sensor_t gas_sensors);
+// UART for ADuCM355
+#define ADUCM355_UART_ENABLE       NRF_GPIO_PIN_MAP(0,8)
+#define ADUCM355_RX_PIN            NRF_GPIO_PIN_MAP(0,6) 
+#define ADUCM355_TX_PIN            NRF_GPIO_PIN_MAP(0,7)        
 
-uint32_t continue_aducm355_measurement_seq(gas_sensor_results_t *gas_results, bool * measurement_done);
+// Heaters for Gas Sensors
+#define ADUCM355_HEATER1           NRF_GPIO_PIN_MAP(0,3)
+#define ADUCM355_HEATER2           NRF_GPIO_PIN_MAP(0,4) 
+#define ADUCM355_HEATER3           NRF_GPIO_PIN_MAP(0,14)   
+#define ADUCM355_HEATER4           NRF_GPIO_PIN_MAP(0,15)   
 
-uint32_t stop_aducm355_measurement_seq(void);
-
-void check_gas_sensing_state(gas_sensing_state_t *buf);
-
-void check_aducm355_rx_buffer(void);
+// Range Control Mux for Gas Sensor Load
+#define ADUCM355_CAP_MUX_NE        NRF_GPIO_PIN_MAP(0,24) 
+#define ADUCM355_CAP_MUX_SO        NRF_GPIO_PIN_MAP(0,23) 
+#define ADUCM355_CAP_MUX_S1        NRF_GPIO_PIN_MAP(0,22) 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* ADUCM355_CONTROLLER_H__ */
+#endif // MATCHBOX_V1_H

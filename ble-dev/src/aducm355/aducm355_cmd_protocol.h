@@ -57,18 +57,18 @@ typedef struct
 
 typedef struct
 { 
-   uint8_t      sensor;
-   uint8_t      num_avg;
-   float        freq;
-   uint16_t     dft_num;
-   uint8_t filler[PKT_PAYLOAD_LENGTH-8];
+   uint8_t  sensor;
+   uint8_t  num_avg;
+   float    freq;
+   uint16_t dft_num;
+   uint8_t  filler[PKT_PAYLOAD_LENGTH-8];
 } measure_payload;   
 
 typedef struct
 { 
-   uint8_t cmd_ackd;
+   uint8_t          cmd_ackd;
    aducm355_state_t state;
-   uint8_t filler[PKT_PAYLOAD_LENGTH-2];
+   uint8_t          filler[PKT_PAYLOAD_LENGTH-2];
 } ack_payload;
 
 /**@brief Try to parse a packet from a RX buffer

@@ -18,6 +18,8 @@ ble-dev/target/pca10056/s140/ses/Output
 ble-dev/target/pca10056/s140/ses/*.jlink
 ble-dev/target/pca10040/s132/ses/Output
 ble-dev/target/pca10040/s132/ses/*.jlink
+ble-dev/target/matchbox_v1/s132/ses/Output
+ble-dev/target/matchbox_v1/s132/ses/*.jlink
 
 # python stuff
 win-dev/M355_4WireImpedance_Plotter/__pycache__
@@ -25,3 +27,4 @@ win-dev/M355_4WireImpedance_Plotter/.vscode
 win-dev/.vscode
 win-dev/*.csv
 win-dev/bash.exe.stackdump
+.vscode

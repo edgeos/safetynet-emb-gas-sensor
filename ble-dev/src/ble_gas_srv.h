@@ -42,13 +42,18 @@ extern "C" {
 #define CONFIG_DATA_GAS4_CHAR_UUID                   0x0008
 
 #define BLE_GAS_NORMAL_DATA_LEN                      20
+#define BLE_GAS_MAX_DATA_LEN                         240
 
 /**@brief Gas Sensor event type. */
 typedef enum
 {
-    BLE_GAS_SRV_MODE_NORMAL = 1,
-    BLE_GAS_SRV_MODE_ENGINEERING = 2
-} ble_gas_srv_config_mode_t;
+    BLE_NAME_CHANGE_CMD     = 1,
+    READ_EEPROM_CMD         = 2,
+    STOP_READ_EEPROM_CMD    = 3,
+    CLEAR_EEPROM_CMD        = 4,
+    WRITE_UTC_TIMESTAMP_CMD = 5,
+    WRITE_GAS_CONFIG_CMD    = 6
+} ble_gas_srv_config_cmd_t;
 
 /**@brief Gas Sensor event type. */
 typedef enum

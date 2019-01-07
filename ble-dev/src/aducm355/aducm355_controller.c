@@ -15,9 +15,11 @@
 #include "nrf.h"
 #include "nrf_drv_clock.h"
 #include "nrf_drv_rtc.h"
+#include "nrf_drv_gpiote.h"
 #include "nrf_gpio.h"
 #include "nrf_delay.h"
 #include "nrf_serial.h"
+#include "aducm355_gas_constants.h"
 #include "aducm355_controller.h"
 #include "aducm355_cmd_protocol.h"
 
@@ -38,15 +40,9 @@
 #define SERIAL_FIFO_RX_SIZE 32
 #define SERIAL_BUFF_TX_SIZE 1
 #define SERIAL_BUFF_RX_SIZE 1
-
 #define MAX_UINT32          4294967295
-
 #define UART_TIMEOUT_US     5000
-
 #define RTC_FREQUENCY       32 // must be a factor of 32768
-
-#define PRIMETIME_SEC       5
-
 #define TIMEOUT_SEC         10
 
 const  nrf_drv_rtc_t           rtc = NRF_DRV_RTC_INSTANCE(2); // Declaring an instance of nrf_drv_rtc for RTC2. */
@@ -56,7 +52,7 @@ static void serial_rx_cb(struct nrf_serial_s const *p_serial, nrf_serial_event_t
 // Uart library defines
 NRF_SERIAL_DRV_UART_CONFIG_DEF(m_uart0_drv_config,
                       ADUCM355_RX_PIN, ADUCM355_TX_PIN,
-                      ADUCM355_RTS_PIN, ADUCM355_CTS_PIN,
+                      NULL, NULL, //ADUCM355_RTS_PIN, ADUCM355_CTS_PIN,
                       UART_CONFIG_HWFC_Disabled, NRF_UART_PARITY_EXCLUDED,
                       NRF_UART_BAUDRATE_115200,
                       UART_DEFAULT_CONFIG_IRQ_PRIORITY);
@@ -77,6 +73,10 @@ static uint8_t uart_rx_parse_pos = 0;
 static bool buf_rdy = false;
 static bool ack_rcvd = false;
 
+static uint8_t measurement_index         = 0;
+static uint8_t measurement_num           = 0;
+static uint8_t measurement_setting_index = 0;
+
 // State init
 aducm355_state_t aducm355_state = ADUCM355_SLEEP;
 gas_sensing_state_t sensing_state = IDLE;
@@ -84,25 +84,88 @@ gas_sensing_state_t sensing_state = IDLE;
 // To store current measurement
 MeasResult_t aducm355_result;
 
-// to track which sensors are enabled / connected
-static uint16_t use_sensor = 0;
-
 // Protect UART buffer flag
 bool uart_buffer_mutex_lock = false;
 
-static void get_sensor_specific_constants(uint16_t * num_avg, float * freq)
+static void get_sensor_specific_measure_params(gas_sensor_t * current_sensor, uint16_t * num_avg, float * freq, bool * mux_en, bool * mux_s0, bool * mux_s1)
 {
-    switch(use_sensor)
+    *current_sensor = MeasureSettings[measurement_setting_index].sensor_num;
+    *num_avg        = MeasureSettings[measurement_setting_index].num_avg;
+    *freq           = MeasureSettings[measurement_setting_index].freq;
+    *mux_en         = MeasureSettings[measurement_setting_index].mux_enable;
+    *mux_s0         = MeasureSettings[measurement_setting_index].mux_s0;
+    *mux_s1         = MeasureSettings[measurement_setting_index].mux_s1;
+}
+
+static void control_heaters(bool enable, gas_sensor_t gas_sensors)
+{
+
+#ifndef BOARD_MATCHBOX_V1
+    return;
+#else
+    if (!enable)
     {
-        case CO2:
-          *num_avg = 10;
-          *freq    = 15000.0f;
-        case CO:
-          *num_avg = 15;
-          *freq    = 25000.0f;
-        default:
-          break;
+        nrf_drv_gpiote_out_clear(ADUCM355_HEATER1);
+        nrf_drv_gpiote_out_clear(ADUCM355_HEATER2);
+        nrf_drv_gpiote_out_clear(ADUCM355_HEATER3);
+        nrf_drv_gpiote_out_clear(ADUCM355_HEATER4);
     }
+    else
+    {
+        if (gas_sensors & GAS1)
+        {
+            nrf_drv_gpiote_out_set(ADUCM355_HEATER1);
+        }
+        if (gas_sensors & GAS2)
+        {
+            nrf_drv_gpiote_out_set(ADUCM355_HEATER2);
+        }
+        if (gas_sensors & GAS3)
+        {
+            nrf_drv_gpiote_out_set(ADUCM355_HEATER3);
+        }
+        if (gas_sensors & GAS4)
+        {
+            nrf_drv_gpiote_out_set(ADUCM355_HEATER4);
+        }
+    }
+#endif
+}
+
+static void config_load_capacitor(bool enable, bool s0, bool s1)
+{
+#ifndef BOARD_MATCHBOX_V1
+    return;
+#else
+    if (!enable)
+    {
+        nrf_drv_gpiote_out_set(ADUCM355_CAP_MUX_NE); // disable = HIGH
+        return; //don't care about other settings
+    }
+    else
+    {
+        nrf_drv_gpiote_out_clear(ADUCM355_CAP_MUX_NE); // enable = LOW
+    }
+
+    // S0
+    if (s0) // S0 = 0, S1 = 0
+    {
+        nrf_drv_gpiote_out_set(ADUCM355_CAP_MUX_SO);
+    }
+    else
+    {
+        nrf_drv_gpiote_out_clear(ADUCM355_CAP_MUX_SO);
+    }
+
+    if (s1)
+    {
+        nrf_drv_gpiote_out_set(ADUCM355_CAP_MUX_S1);
+    }
+    else
+    {
+        nrf_drv_gpiote_out_clear(ADUCM355_CAP_MUX_S1);
+    }
+#endif
 }
 
 static void lock_mutex(bool *mutex)
@@ -187,16 +250,31 @@ static void send_measurement_aducm355(void)
 {
     uint32_t ret;
     uint8_t pkt_length;
+    gas_sensor_t use_sensor;
 
+    // get the constants for the current measurement_setting_index (global var)
     uint16_t num_avg;
     float freq;
-    get_sensor_specific_constants(&num_avg, &freq);
-    build_start_measure_packet(&uart_tx_buffer[0], &pkt_length, (uint8_t) use_sensor, num_avg, freq);
+    bool mux_en, mux_s0, mux_s1;
+    get_sensor_specific_measure_params(&use_sensor, &num_avg, &freq, &mux_en, &mux_s0, &mux_s1);
+
+    // configure load capacitor prior to sending measurement command
+    config_load_capacitor(mux_en, mux_s0, mux_s1);
+
+    build_start_measure_packet(&uart_tx_buffer[0], &pkt_length, use_sensor, num_avg, freq);
     ret = tx_and_wait_for_ack(&uart_tx_buffer[0], &pkt_length);
-    
+    if(ret != 0)
+    {
+        APP_ERROR_CHECK(ret);
+    }
+    nrf_delay_ms(1);
+
     // ping the ADuCM355 to get current state
     ret = send_ping_aducm355();
-    APP_ERROR_CHECK(ret);
+    if(ret != 0)
+    {
+        APP_ERROR_CHECK(ret);
+    }
 
     // ensure the ADI chip has transitioned to measure state
     if (aducm355_state == ADUCM355_MEASURE)
@@ -277,15 +355,37 @@ static void check_measuring_state(void)
 
 uint32_t init_aducm355_iface(void)
 {
+
+    static bool uart_init = false;
+#ifdef BOARD_MATCHBOX_V1
+    if(!nrf_drv_gpiote_is_init())
+    {
+        APP_ERROR_CHECK(nrf_drv_gpiote_init());
+    }
+    nrf_drv_gpiote_out_config_t out_config_low = GPIOTE_CONFIG_OUT_SIMPLE(false); // false = init low = UART ENABLE
+    nrf_drv_gpiote_out_config_t out_config_high = GPIOTE_CONFIG_OUT_SIMPLE(true); // true = init High = MUX DISABLE
+    APP_ERROR_CHECK(nrf_drv_gpiote_out_init(ADUCM355_UART_ENABLE, &out_config_low));
+    APP_ERROR_CHECK(nrf_drv_gpiote_out_init(ADUCM355_HEATER1, &out_config_low));
+    APP_ERROR_CHECK(nrf_drv_gpiote_out_init(ADUCM355_HEATER2, &out_config_low));
+    APP_ERROR_CHECK(nrf_drv_gpiote_out_init(ADUCM355_HEATER3, &out_config_low));
+    APP_ERROR_CHECK(nrf_drv_gpiote_out_init(ADUCM355_HEATER4, &out_config_low));
+    APP_ERROR_CHECK(nrf_drv_gpiote_out_init(ADUCM355_CAP_MUX_NE, &out_config_high));
+#endif
+
     ret_code_t ret;
-    ret = nrf_serial_init(&serial_uart, &m_uart0_drv_config, &serial_config);
-    APP_ERROR_CHECK(ret);
+    if (!uart_init)
+    {
+        ret = nrf_serial_init(&serial_uart, &m_uart0_drv_config, &serial_config);
+        APP_ERROR_CHECK(ret);
+
+        uart_init = true;
+    }
 
     // ping the ADuCM355, it should be asleep
     return send_ping_aducm355();
 }
 
-uint32_t start_aducm355_measurement_seq(gas_sensor_t gas_sensor)
+uint32_t start_aducm355_measurement_seq(gas_sensor_t gas_sensors)
 {
     ret_code_t ret;
 
@@ -294,12 +394,10 @@ uint32_t start_aducm355_measurement_seq(gas_sensor_t gas_sensor)
     APP_ERROR_CHECK(ret);
 
     // return error if it didn't transition to sleep
-    if (aducm355_state != ADUCM355_IDLE) return 1;
+    //if (aducm355_state != ADUCM355_IDLE) return 1;
 
-    // start heaters and configure load capacitor (PLACEHOLDER)
-    use_sensor = gas_sensor;
-    //start_heaters(use_sensor);
-    //config_load_capacitor(use_sensor);
+    // start heaters for gas sensors
+    control_heaters(true, gas_sensors);
 
     if (sensing_state == IDLE)
     {
@@ -310,6 +408,19 @@ uint32_t start_aducm355_measurement_seq(gas_sensor_t gas_sensor)
         sensing_state = PRIMING;
     }
      
+    // reset measurement_index to 0
+    measurement_index = 0;
+    if (gas_sensors == ALL)
+    {
+        measurement_setting_index = 0;
+        measurement_num = NUM_GAS_SENSORS * NUM_FREQS_PER_SENSOR;
+    }
+    else
+    {
+        measurement_setting_index = gas_sensors*NUM_FREQS_PER_SENSOR;
+        measurement_num = NUM_FREQS_PER_SENSOR;
+    }
+
     // success
     return 0;
 }
@@ -337,12 +448,22 @@ uint32_t continue_aducm355_measurement_seq(gas_sensor_results_t *gas_results, bo
         case MEASUREMENT_DONE:
             //run_gas_sensing_algorithim(&aducm355_result, gas_results);
             sensing_state = PRIMED; // we are still in the primed state
-            gas_results->gas_sensor = aducm355_result.sensor;
-            gas_results->gas_ppm = 0; // placeholder
-            gas_results->freq = aducm355_result.freq;
-            gas_results->Z_re = aducm355_result.Z_re;
-            gas_results->Z_im = aducm355_result.Z_im;
-            *measurement_done = true;
+            gas_results[measurement_index].gas_sensor = aducm355_result.sensor;
+            gas_results[measurement_index].gas_ppm = 0; // placeholder
+            gas_results[measurement_index].freq = (uint8_t) (aducm355_result.freq/1000.0f);
+            gas_results[measurement_index].Z_re = aducm355_result.Z_re;
+            gas_results[measurement_index].Z_im = aducm355_result.Z_im;
+
+            // increment for next measurement
+            measurement_index++;
+            measurement_setting_index++;
+          
+            // check if done
+            if (measurement_index == measurement_num)
+            {
+                measurement_num = 0;
+                *measurement_done = true;
+            }
             break;
         default:
             return 1; // this should never happen
@@ -356,16 +477,18 @@ uint32_t stop_aducm355_measurement_seq(void)
 {
     ret_code_t ret;
 
-    // toggle heaters to OFF and reset load cap (Placeholder)
-    //reset_heaters(use_sensor);
-    //reset_load_capacitor(use_sensor);
+    // turn off heaters for gas sensors
+    control_heaters(false, 0);
+
+    // turn off capacitor mux for gas sensors
+    config_load_capacitor(false, false, false);
 
     // sleep cmd
     ret = send_sleep_aducm355();
     APP_ERROR_CHECK(ret);
 
     // return error if it didn't transition to sleep
-    if (aducm355_state != ADUCM355_SLEEP) return 1;                    
+    if (aducm355_state != ADUCM355_SLEEP) return 1;       
 
     // Power off RTC instance
     nrf_drv_rtc_uninit(&rtc); 
@@ -411,7 +534,7 @@ void check_aducm355_rx_buffer(void)
              parse_aducm355_ack_payload((ack_payload *)&rx_packet.payload);
              break;
           case CMD_SEND_DATA:
-             send_ack_aducm355(&rx_packet);
+             //send_ack_aducm355(&rx_packet);
              parse_aducm355_measure_data((data_payload *)&rx_packet.payload);
           default: // should never receive any other pkt cmd types
              break;

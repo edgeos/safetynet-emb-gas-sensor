@@ -37,64 +37,13 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef ADUCM355_CONTROLLER_H__
-#define ADUCM355_CONTROLLER_H__
+#ifndef CUSTOM_BOARD_H
+#define CUSTOM_BOARD_H
 
-#include <stdint.h>
-#include "nrf.h"
-
-#ifdef __cplusplus
-extern "C" {
+#if defined(BOARD_MATCHBOX_V1)
+  #include "matchbox_v1.h"
+#else
+#error "Board is not defined"
 #endif
 
-#pragma pack(1) 
-
-/**@brief Gas Sensor State */
-typedef enum
-{
-    IDLE,             // aducm355 in sleep state
-    PRIMING,          // aducm355 in sleep state, heaters turned on
-    PRIMED,           // aducm355 in idle state, heaters in ready state
-    MEASURING,        // aducm355 in measure state, heaters still on
-    MEASUREMENT_DONE  // aducm355 in idle state, heaters off, algorithms
-} gas_sensing_state_t;
-
-/**@brief Gas Sensor Types */
-typedef enum
-{
-    GAS1 = 1 << 0,            
-    GAS2 = 1 << 1,
-    GAS3 = 1 << 2,
-    GAS4 = 1 << 3,
-    ALL  = 0xff
-} gas_sensor_t;
-
-typedef struct
-{ 
-   gas_sensor_t gas_sensor;
-   uint8_t freq;
-   float Z_re;
-   float Z_im;
-   float gas_ppm;
-} gas_sensor_results_t;
-
-/**@brief Initialize ADuCM355 Uart Interface
- *
- */
-uint32_t init_aducm355_iface(void);
-
-uint32_t start_aducm355_measurement_seq(gas_sensor_t gas_sensors);
-
-uint32_t continue_aducm355_measurement_seq(gas_sensor_results_t *gas_results, bool * measurement_done);
-
-uint32_t stop_aducm355_measurement_seq(void);
-
-void check_gas_sensing_state(gas_sensing_state_t *buf);
-
-void check_aducm355_rx_buffer(void);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* ADUCM355_CONTROLLER_H__ */
+#endif //CUSTOM_BOARD_H

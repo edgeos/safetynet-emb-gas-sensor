@@ -9,12 +9,13 @@
  */
 
 #include <stdio.h>
+#include <math.h>
 #include "boards.h"
 #include "app_util_platform.h"
 #include "app_error.h"
 #include "nrf_drv_twi.h"
 #include "nrf_delay.h"
-#include "m24m02_2.h"
+#include "m24m02.h"
 #include "bme280.h"
 #include "i2c_device_controller.h"
 
@@ -42,8 +43,8 @@ static volatile bool m_xfer_done1 = false;
 /* I2C enable bool */
 static volatile bool twi_enabled = false;
 
-// EEPROM current address
-uint32_t m24m02_address = 0;
+// EEPROM current info
+static m24m02_info_t m24m02_info = {0};
 
 /**
  * @brief TWI events handler.
@@ -86,7 +87,7 @@ static void twi_init(void)
     const nrf_drv_twi_config_t twi_config = {
        .scl                = SCL_PIN,
        .sda                = SDA_PIN,
-       .frequency          = NRF_TWI_FREQ_400K,
+       .frequency          = NRF_TWI_FREQ_250K,
        .interrupt_priority = APP_IRQ_PRIORITY_LOW,
        .clear_bus_init     = true//,
        //.hold_bus_uninit    = true 
@@ -144,7 +145,7 @@ static uint32_t twi_eeprom_read(uint8_t dev_id, uint8_t *reg_addr, uint8_t *data
     ret_code_t err_code;
 
     /* Prepare for the read with a register write */
-    uint8_t reg_read[2] = {*reg_addr, *(reg_addr++)};
+    uint8_t reg_read[2] = {*reg_addr, *(reg_addr+1)};
     m_xfer_done1 = false; 
     err_code = nrf_drv_twi_tx(&m_twi, dev_id, reg_read, 2, true);
     APP_ERROR_CHECK(err_code);
@@ -167,7 +168,7 @@ static uint32_t twi_eeprom_write(uint8_t dev_id, uint8_t *reg_addr, uint8_t *dat
     /* Build tx buffer */
     uint8_t reg_write[3];
     reg_write[0] = *reg_addr;
-    reg_write[1] = *(reg_addr++);
+    reg_write[1] = *(reg_addr+1);
     reg_write[2] = *data;
 
     /* Transfer tx buffer */
@@ -258,9 +259,9 @@ static int8_t bme280_stream_sensor_data_forced_mode(struct bme280_dev *dev, uint
 
     // package for BLE
     memcpy(&data_buffer[0], &comp_data.temperature, sizeof(comp_data.temperature));
-    memcpy(&data_buffer[2], &comp_data.humidity, sizeof(comp_data.humidity));
-    memcpy(&data_buffer[4], &comp_data.pressure, sizeof(comp_data.pressure));
-    data_buffer_length = 6;
+    memcpy(&data_buffer[4], &comp_data.humidity, sizeof(comp_data.humidity));
+    memcpy(&data_buffer[8], &comp_data.pressure, sizeof(comp_data.pressure));
+    data_buffer_length = 12;
 
     // assign pointers
     memcpy(p_data, &data_buffer[0], data_buffer_length);
@@ -269,19 +270,42 @@ static int8_t bme280_stream_sensor_data_forced_mode(struct bme280_dev *dev, uint
     return rslt;
 }
 
+static uint32_t eeprom_m24m02_check_data_validity(void)
+{
+    // read the info struct, check for magic number indicating data validity
+    m24m02_eeprom(M24MO2_READ, M24M02_INFO_ADDRESS, sizeof(m24m02_info_t), (uint8_t*) &m24m02_info);
+
+    if(m24m02_info.magic_number != M24M02_DATA_VALID)
+    {
+        // reset info data, it's either a brand new eeprom that's never been initialized or is corrupted
+        m24m02_info.magic_number = M24M02_DATA_VALID;
+        m24m02_info.current_write_address = M24M02_FIRST_DATA_ADDRESS;
+        m24m02_info.num_records = 0;
+        m24m02_info.utc_time_ref_sec = 0;
+
+        // write it to the eeprom
+        m24m02_eeprom(M24MO2_WRITE, M24M02_INFO_ADDRESS, sizeof(m24m02_info_t), (uint8_t*) &m24m02_info);
+
+        // check that it was written correctly, this basically tells us if the chip is there
+        memset(&m24m02_info, 0, sizeof(m24m02_info_t));
+        m24m02_eeprom(M24MO2_READ, M24M02_INFO_ADDRESS, sizeof(m24m02_info_t), (uint8_t*) &m24m02_info);
+    }
+    return (m24m02_info.magic_number == M24M02_DATA_VALID) ? 0 : 1;
+}
+
 static void eeprom_m24m02_init(void)
 {
+    ret_code_t ret_code;
+
     i2c_dev_m24m02.dev_id = M24M02_I2C_ADDR_SEC;
     i2c_dev_m24m02.read = twi_eeprom_read;
     i2c_dev_m24m02.write = twi_eeprom_write;
-    uint8_t test_write[32] = {15};
-    uint8_t test_read[32] = {0};
     if (m24m02_eeprom_init(&i2c_dev_m24m02) == true)
     {
         if(scan_for_twi_device(M24M02_I2C_ADDR_SEC))
         {
-            m24m02_eeprom(1, 0, 32, &test_write[0]);
-            m24m02_eeprom(0, 0, 32, &test_read[0]);
+            ret_code = eeprom_m24m02_check_data_validity();
+            APP_ERROR_CHECK(ret_code);
             enabled_devices |= M24M02;
         }
     }
@@ -334,4 +358,70 @@ int8_t get_sensor_data(ext_device_type_t get_sensor, uint8_t * p_data, uint16_t 
             break;
     }
     return ret_code;
+}
+
+int8_t update_utc_time_eeprom(uint32_t * utc_time_new)
+{
+    if (!(enabled_devices & M24M02)) return 1;
+
+    m24m02_info.utc_time_ref_sec = *utc_time_new;
+    m24m02_eeprom(M24MO2_WRITE, M24M02_UTC_TIME_ADDRESS, sizeof(uint32_t), (uint8_t*) &m24m02_info.utc_time_ref_sec);
+}
+
+int8_t store_sensor_data_eeprom(m24m02_storage_block_t *new_data, uint32_t *ms_since_last_update)
+{
+    if (!(enabled_devices & M24M02)) return 1;
+
+    // update time
+    m24m02_info.utc_time_ref_sec += (uint32_t) (*ms_since_last_update/1000.0f);
+
+    // write new data
+    new_data->utc_time_ref_sec = m24m02_info.utc_time_ref_sec;
+    m24m02_eeprom(M24MO2_WRITE, m24m02_info.current_write_address, sizeof(m24m02_storage_block_t), (uint8_t*) new_data);
+
+    // update num records
+    m24m02_info.num_records++;
+
+    // update write address
+    m24m02_info.current_write_address += sizeof(m24m02_storage_block_t);
+    
+    // write new info to the eeprom
+    m24m02_eeprom(M24MO2_WRITE, M24M02_INFO_ADDRESS, sizeof(m24m02_info_t), (uint8_t*) &m24m02_info);
+}
+
+int8_t get_sensor_data_eeprom(bool * restart_read, bool * finished_read, m24m02_storage_block_t *recorded_data)
+{
+    if (!(enabled_devices & M24M02)) return 1;
+
+    // keep track of whats been read
+    static uint32_t current_read_address = M24M02_FIRST_DATA_ADDRESS;
+    static uint32_t num_records_read_total = 0;
+
+    if(*restart_read)
+    {
+        current_read_address = M24M02_FIRST_DATA_ADDRESS;
+        num_records_read_total = 0; 
+    }
+    
+    if(num_records_read_total < m24m02_info.num_records)
+    {
+        m24m02_eeprom(M24MO2_READ, current_read_address, sizeof(m24m02_storage_block_t), (uint8_t*) recorded_data);
+        current_read_address += sizeof(m24m02_storage_block_t);
+        num_records_read_total++;
+    }
+
+    *finished_read = (num_records_read_total == m24m02_info.num_records) ? true : false;
+}
+
+int8_t clear_sensor_data_eeprom(uint8_t * p_data, uint16_t * p_data_length)
+{
+    if (!(enabled_devices & M24M02)) return 1;
+
+    // update num records
+    m24m02_info.num_records = 0;
+    m24m02_eeprom(M24MO2_WRITE, M24M02_NUM_RECORDS_ADDRESS, sizeof(uint16_t), (uint8_t*) &m24m02_info.num_records);
+
+    // update write address
+    m24m02_info.current_write_address = M24M02_FIRST_DATA_ADDRESS;
+    m24m02_eeprom(M24MO2_WRITE, M24M02_CURRENT_WRITE_ADDRESS, sizeof(uint32_t), (uint8_t*) &m24m02_info.current_write_address);
 }

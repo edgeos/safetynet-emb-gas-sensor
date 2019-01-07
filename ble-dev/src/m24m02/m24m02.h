@@ -1,25 +1,25 @@
 /* Found on Github and modified to be good
 */
-
-
 #ifndef M24M02_H__
 #define M24M02_H__
-
 
 #include <stdbool.h>
 #include <stdint.h>
 
-#define M24M02_FACTORY_ADDRESS         0x02000000
-#define M24M02_I2C_ADDR_SEC            0xA0   
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+#define M24M02_I2C_ADDR_SEC            0xA0
+#define M24MO2_READ                    0
+#define M24MO2_WRITE                   1
+ 
 
 /*!
  * @brief Type definitions
  */
-typedef uint32_t (*m24m02_com_fptr_write_t)(uint8_t dev_id, uint8_t reg_addr,
-                                            uint8_t *data, uint16_t len);
-typedef uint32_t (*m24m02_com_fptr_read_t)(uint8_t *dev_id, uint8_t *reg_addr,
-                                            uint8_t *data, uint16_t len);
+typedef uint32_t (*m24m02_com_fptr_write_t)(uint8_t dev_id, uint8_t *reg_addr, uint8_t *data);
+typedef uint32_t (*m24m02_com_fptr_read_t) (uint8_t dev_id, uint8_t *reg_addr, uint8_t *data);
 
 /*!
  * @brief m24m02 device structure
@@ -29,81 +29,23 @@ struct m24m02_dev {
 	uint8_t chip_id;
 	/*! Device Id */
 	uint8_t dev_id;
+        /*! Current EEPROM Address */
+	uint32_t write_address;
+        /*! Num Bytes written */
+	uint32_t current_utc_time_reference;
 	/*! Read function pointer */
 	m24m02_com_fptr_read_t read;
 	/*! Write function pointer */
 	m24m02_com_fptr_write_t write;
 };
 
-bool i2c_eeprom_init(struct m24m02_dev *dev);
-/**
- *	Function:	i2c_eeprom_erase
- *
- *	Arguments:	n/a
- *
- *	Returns:	true/false
- *
- *	Description:	Erases the EEPROM.
-**/
-bool i2c_eeprom_erase();
-/**
- *	Function:	i2c_eeprom_write_page
- *
- *	Arguments:	18 bit address 
- *              pointer to the data.
- *              length of data
- *
- *	Returns:	true/false
- *
- *	Description:	Reads both the light registers on the device and returns the 
- *			computed light level
-**/
-bool i2c_eeprom_write(uint32_t address, uint8_t* data, uint32_t length);
-bool i2c_eeprom_write_buffer(uint8_t dev_id, uint16_t address, uint8_t* data, uint16_t length);
-/**
- *	Function:	i2c_eeprom_write_page
- *
- *	Arguments:	Device Address
- *              16 bit eeprom address 
- *              pointer to the data.
- *              length of data
- *
- *	Returns:	true/false
- *
- *	Description:	Reads both the light registers on the device and returns the 
- *			computed light level
-**/
-bool i2c_eeprom_write_page(uint8_t dev_id, uint16_t eeaddress, uint8_t* data, uint8_t length );
-/**
- *	Function:	i2c_eeprom_read_buffer
- *
- *	Arguments:	18 bit eeprom address 
- *              pointer to the data.
- *              length of data
- *
- *	Returns:	true/false
- *
- *	Description:	Reads both the light registers on the device and returns the 
- *			computed light level
-**/
-bool i2c_eeprom_read(uint32_t address, uint8_t* data, uint32_t length);
-/**
- *	Function:	i2c_eeprom_read_buffer
- *
- *	Arguments:	Device Address
- *              16 bit eeprom address 
- *              pointer to the data.
- *              length of data
- *
- *	Returns:	true/false
- *
- *	Description:	Reads both the light registers on the device and returns the 
- *			computed light level
-**/
-bool i2c_eeprom_read_buffer(uint8_t *dev_id, uint16_t address, uint8_t *buffer, uint16_t length); 
+bool m24m02_eeprom_init(struct m24m02_dev *dev_init); 
+bool m24m02_eeprom(uint8_t rw, uint32_t eepromAddress, uint8_t data_byte, uint8_t *infoArray);       // r/w mode ok
+//bool m24m02_eeprom_clear_address_byte(uint32_t eepromAddress, uint8_t data_byte);
 
-uint32_t eeprom_read_add_pointer(void);
-
-bool eeprom_update_add_pointer(uint32_t address);
+#ifdef __cplusplus
+}
+#endif
 
 #endif // M24M02_H__
+

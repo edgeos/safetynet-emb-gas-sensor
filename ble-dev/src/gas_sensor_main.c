@@ -1,51 +1,55 @@
-/**
- * Copyright (c) 2014 - 2018, Nordic Semiconductor ASA
+/**\mainpage
+ * Copyright (C) 2018 GE Global Research
  *
- * All rights reserved.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
+ * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
+ * Redistributions in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution.
  *
- * 2. Redistributions in binary form, except as embedded into a Nordic
- *    Semiconductor ASA integrated circuit in a product or a software update for
- *    such product, must reproduce the above copyright notice, this list of
- *    conditions and the following disclaimer in the documentation and/or other
- *    materials provided with the distribution.
+ * Neither the name of the copyright holder nor the names of the
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
  *
- * 3. Neither the name of Nordic Semiconductor ASA nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+ * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER
+ * OR CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
  *
- * 4. This software, with or without modification, must only be used with a
- *    Nordic Semiconductor ASA integrated circuit.
+ * The information provided is believed to be accurate and reliable.
+ * The copyright holder assumes no responsibility
+ * for the consequences of use
+ * of such information nor for any infringement of patents or
+ * other rights of third parties which may result from its use.
+ * No license is granted by implication or otherwise under any patent or
+ * patent rights of the copyright holder.
  *
- * 5. Any software provided in binary form under this license must not be reverse
- *    engineered, decompiled, modified and/or disassembled.
- *
- * THIS SOFTWARE IS PROVIDED BY NORDIC SEMICONDUCTOR ASA "AS IS" AND ANY EXPRESS
- * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY, NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * File		gas_sensor_main.c
+ * Date		18 Dec 2018
+ * Version	1
  *
  */
-// Board/nrf6310/ble/ble_app_hrs_rtx/main.c
-/**
- *
- * @brief Heart Rate Service Sample Application with RTX main file.
- *
- * This file contains the source code for a sample application using RTX and the
- * Heart Rate service (and also Battery and Device Information services).
- * This application uses the @ref srvlib_conn_params module.
- */
+
+/*! @file gas_sensor_main.c
+    @brief Main file for SafetyNet Gas Sensor BLE Application. This file initializes and instantiate the BLE SoftDevice,
+     as well as a number of FreeRTOS Tasks and Timers for measuring and managing multiple external sensors, like the BME280 
+     environmental sensor and the ADuCM355 impedance measurement sensor used for estimating gas TVOC.
+*/
 
 #include <stdint.h>
 #include <string.h>
@@ -80,6 +84,7 @@
 #include "nrf_drv_rtc.h"
 #include "nrf_ble_gatt.h"
 #include "nrf_ble_qwr.h"
+#include "nrf_drv_gpiote.h"
 #include "nrf_delay.h"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
@@ -92,38 +97,34 @@
 #include "aducm355_controller.h"
 
 // external devices (eeprom and temp humidity sensor)
-#include "m24m02_2.h"
+#include "m24m02.h"
 #include "bme280.h"
 
-// defines for ext sensors, the first SAMPLE_INTERVAL defines how often we wake up, the
-// MEASURE_INTERVALs should be a multiple of the SAMPLE_INTERVAL
-#define BME280_MEASURE_INTERVAL             1000                                    /**< BME280 measurement interval (ms). */
-#define ADUCM355_MEASURE_INTERVAL           1000                                    /**< ADUCM355 measurement interval (ms). */
-#define ADUCM355_MEASURE_CHECK_INTERVAL       25                                    /**< ADUCM355 check rx buffer interval (ms). */
+// nv flash
+#include "nvflash_controller.h"
 
-#define DEVICE_NAME                         "GE Gas Sensor"                     /**< Name of device. Will be included in the advertising data. */
+/**\name Macro Definitions */
+#define BME280_MEASURE_INTERVAL                   1000                              /**< BME280 measurement interval (ms). */
+#define ADUCM355_MEASURE_INTERVAL_CONNECTED       1700                              /**< ADUCM355 measurement interval (ms). */
+#define ADUCM355_MEASURE_INTERVAL_DISCONNECTED    1700                              /**< ADUCM355 measurement interval (ms). */
+#define ADUCM355_MEASURE_CHECK_INTERVAL           20                                 /**< ADUCM355 check rx buffer interval (ms). */
+#define DEVICE_NAME                         "GE Gas Sensor"                         /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                   "GE"                                    /**< Manufacturer. Will be passed to Device Information Service. */
-
 #define APP_BLE_OBSERVER_PRIO               3                                       /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 #define APP_BLE_CONN_CFG_TAG                1                                       /**< A tag identifying the SoftDevice BLE configuration. */
-
 #define APP_ADV_INTERVAL                    300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
-#define APP_ADV_DURATION                    1000                                       /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
-
+#define APP_ADV_DURATION                    18000                                   /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
 #define BATTERY_LEVEL_MEAS_INTERVAL         2000                                    /**< Battery level measurement interval (ms). */
 #define MIN_BATTERY_LEVEL                   81                                      /**< Minimum simulated battery level. */
 #define MAX_BATTERY_LEVEL                   100                                     /**< Maximum simulated battery level. */
 #define BATTERY_LEVEL_INCREMENT             1                                       /**< Increment between each simulated battery level measurement. */
-
-#define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(200, UNIT_1_25_MS)         /**< Minimum acceptable connection interval (0.4 seconds). */
-#define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(400, UNIT_1_25_MS)         /**< Maximum acceptable connection interval (0.65 second). */
+#define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(200, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.4 seconds). */
+#define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(400, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (0.65 second). */
 #define SLAVE_LATENCY                       0                                       /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                    MSEC_TO_UNITS(4000, UNIT_10_MS)         /**< Connection supervisory time-out (4 seconds). */
-
 #define FIRST_CONN_PARAMS_UPDATE_DELAY      5000                                    /**< Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY       30000                                   /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
 #define MAX_CONN_PARAMS_UPDATE_COUNT        3                                       /**< Number of attempts before giving up the connection parameter negotiation. */
-
 #define SEC_PARAM_BOND                      0                                       /**< Perform bonding. */
 #define SEC_PARAM_MITM                      0                                       /**< Man In The Middle protection not required. */
 #define SEC_PARAM_LESC                      0                                       /**< LE Secure Connections not enabled. */
@@ -132,11 +133,8 @@
 #define SEC_PARAM_OOB                       0                                       /**< Out Of Band data not available. */
 #define SEC_PARAM_MIN_KEY_SIZE              7                                       /**< Minimum encryption key size. */
 #define SEC_PARAM_MAX_KEY_SIZE              16                                      /**< Maximum encryption key size. */
-
 #define DEAD_BEEF                           0xDEADBEEF                              /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
-
 #define OSTIMER_WAIT_FOR_QUEUE              2                                       /**< Number of ticks to wait for the timer queue to be ready */
-
 
 BLE_GAS_SRV_DEF(m_gas);                                             /**< Gas Sensor service instance. */
 BLE_BAS_DEF(m_bas);                                                 /**< Battery service instance. */
@@ -144,13 +142,21 @@ NRF_BLE_GATT_DEF(m_gatt);                                           /**< GATT mo
 NRF_BLE_QWR_DEF(m_qwr);                                             /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                 /**< Advertising module instance. */
 
-static uint16_t m_conn_handle            = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
-
+static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;            /**< Handle of the current connection. */
 static sensorsim_cfg_t   m_battery_sim_cfg;                         /**< Battery Level sensor simulator configuration. */
 static sensorsim_state_t m_battery_sim_state;                       /**< Battery Level sensor simulator state. */
-
 static bool m_ble_connected_bool = false;
 static bool simulated_gas_sensor_data = true;
+static char m_ble_advertising_name[MAX_BLE_NAME_LENGTH] = {0};
+
+// global bools for handling phone-to-device ble commands (gas service config characteristic)
+static bool read_eeprom_cmd = false;
+static bool clear_eeprom_cmd = false;
+static bool update_utc_time = false;
+static bool update_aducm355_config = false;
+
+// globals to store new config data
+static uint32_t new_utc_time_ref = 0;
 
 static ble_uuid_t m_adv_uuids[] =                                   /**< Universally unique service identifiers. */
 {
@@ -159,18 +165,28 @@ static ble_uuid_t m_adv_uuids[] =                                   /**< Univers
     {BLE_UUID_GAS_SENSOR_SERVICE, BLE_UUID_TYPE_BLE}
 };
 
-// FreeRTOS Timers
 static TimerHandle_t m_battery_timer;                               /**< Definition of battery timer. */
-
-// FreeRTOS Tasks & semaphore (to prevent i2c contention)
-static TaskHandle_t bme280_measure_task_handle; 
-static TaskHandle_t aducm355_measure_task_handle;
+static TaskHandle_t bme280_measure_task_handle;                     /**< Definition of BME280 measurement task. */
+static TaskHandle_t aducm355_measure_task_handle;                   /**< Definition of ADuCM355 measurement task. */
+static TaskHandle_t aducm355_command_task_handle;                   /**< Definition of ADuCM355 command handler task. */
 xSemaphoreHandle i2c_semaphore = 0;
+xSemaphoreHandle use_aducm355_semaphore = 0;
+
+static m24m02_storage_block_t latest_measurement_data = {0};
+static bool m_clear_eeprom = false;
+static bool m_send_eeprom_data = false;
 
 #if NRF_LOG_ENABLED
 static TaskHandle_t m_logger_thread;                                /**< Definition of Logger thread. */
 #endif
 
+/**\name Function definitions */
+/**@brief Function to start BLE advertising.
+ *
+ * @details This function is called by FreeRTOS when the Idle Task is initially started.
+ *
+ * @param[in]   p_erase_bonds   A boolean to delete any prior bonding material.
+ */
 static void advertising_start(void * p_erase_bonds);
 
 
@@ -290,8 +306,8 @@ static void gap_params_init(void)
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
 
     err_code = sd_ble_gap_device_name_set(&sec_mode,
-                                          (const uint8_t *)DEVICE_NAME,
-                                          strlen(DEVICE_NAME));
+                                          (const uint8_t *)m_ble_advertising_name,
+                                          strlen(m_ble_advertising_name));
     APP_ERROR_CHECK(err_code);
 
     memset(&gap_conn_params, 0, sizeof(gap_conn_params));
@@ -362,6 +378,24 @@ static void gas_data_handler(ble_gas_srv_evt_t * p_evt)
         uint32_t err_code;
 
         NRF_LOG_DEBUG("Received config update from BLE Gas Sensor Service.");
+
+        // working buffer copy, parse
+        memcpy(&buf[0], p_evt->params.config_data.config_data_buffer, BLE_GAS_NORMAL_DATA_LEN);
+        switch(buf[0])
+        {
+            case BLE_NAME_CHANGE_CMD:
+                // write to flash
+                memcpy(&m_ble_advertising_name[0], &buf[1], MAX_BLE_NAME_LENGTH);
+                write_flash_ble_advertisement_name(&m_ble_advertising_name[0], MAX_BLE_NAME_LENGTH);
+                break;
+            case READ_EEPROM_CMD:
+            case CLEAR_EEPROM_CMD:
+            case WRITE_UTC_TIMESTAMP_CMD:
+            case WRITE_GAS_CONFIG_CMD:
+            default:
+                NRF_LOG_DEBUG("Invalid Config command written, ignoring");
+                break;
+        }
     }
 }
 
@@ -540,7 +574,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
             break;
 
         case BLE_ADV_EVT_IDLE:
-            //sleep_mode_enter();
+            sleep_mode_enter();
             break;
 
         default:
@@ -872,16 +906,51 @@ static void bme280_measure_task (void * pvParameter)
     UNUSED_PARAMETER(pvParameter);
     while(1)
     {
+        if(xSemaphoreTake(i2c_semaphore,BME280_MEASURE_INTERVAL))
+        {
+            get_sensor_data(BME280, &p_data[0], &p_data_length);
+            memcpy(&latest_measurement_data.temperature, &p_data[0], sizeof(latest_measurement_data.temperature));
+            memcpy(&latest_measurement_data.humidity, &p_data[4], sizeof(latest_measurement_data.humidity));
+            memcpy(&latest_measurement_data.pressure, &p_data[8], sizeof(latest_measurement_data.pressure));
+            xSemaphoreGive(i2c_semaphore);
+        }
         if(m_ble_connected_bool)
         {
-            if(xSemaphoreTake(i2c_semaphore,BME280_MEASURE_INTERVAL))
-            {
-                get_sensor_data(BME280, &p_data[0], &p_data_length);
-                gas_characteristic_update(ble_gas_srv_temp_humid_pressure_update, &p_data[0], &p_data_length);
-                xSemaphoreGive(i2c_semaphore);
-            }
+            gas_characteristic_update(ble_gas_srv_temp_humid_pressure_update, &p_data[0], &p_data_length);
         }
         vTaskDelay(BME280_MEASURE_INTERVAL);
+    }
+}
+
+
+/**@brief Function for generating simulated ADuCM355 measurement data.
+ */
+static void generate_simulated_aducm355_data(gas_sensor_results_t *gas_results)
+{
+    static uint8_t sim_ct = 0;
+    static float tmp = 0;
+
+    // generate simulated sensor data
+    if (sim_ct == 0)
+    {
+        gas_results->gas_ppm = gas_results->Z_im = gas_results->Z_re = 0;
+    }
+
+    for(uint8_t lcv = 0; lcv <= 16; lcv++)
+    {
+        gas_results[lcv].gas_sensor = lcv % 4 + 1;
+        gas_results[lcv].gas_ppm = 1000 + sim_ct;
+        gas_results[lcv].freq  = 10+lcv;
+    
+        // swap to add some variation
+        tmp = gas_results[lcv].Z_im;
+        gas_results[lcv].Z_im = gas_results->Z_re;
+        gas_results[lcv].Z_re = tmp;
+
+        // add counter var
+        gas_results[lcv].Z_im += sim_ct;
+        gas_results[lcv].Z_re -= sim_ct;
+        sim_ct++;
     }
 }
 
@@ -892,54 +961,43 @@ static void aducm355_measure_task (void * pvParameter)
     ret_code_t err_code;
     static bool measurement_in_progress = false;
     static bool measurement_done = false;
-    static gas_sensor_results_t gas_results = {0};
+    static gas_sensor_results_t gas_results[16] = {0};
     static gas_sensing_state_t gas_sensing_state;
     static uint32_t ms_count = 0;
     static bool aducm355_no_iface = true;
     static uint32_t num_measurements = 0;
-    static uint32_t current_thread_delay = ADUCM355_MEASURE_INTERVAL;
-    static uint8_t sim_ct = 0;
+    static uint32_t current_thread_delay = ADUCM355_MEASURE_INTERVAL_DISCONNECTED;
 
-    static uint8_t p_data[BLE_GAS_NORMAL_DATA_LEN] = {0};
-    static uint16_t p_data_length;
-    static float tmp = 0;
-
+    uint16_t p_data_length = sizeof(gas_sensor_results_t)*16 + 1;
+    uint8_t  p_data[sizeof(gas_sensor_results_t)*16 + 1] = {0};
+    p_data[0] = 16;
+    
     UNUSED_PARAMETER(pvParameter);
     while(1)
     {
+        // try to take it immediately
+        if(!xSemaphoreTake(use_aducm355_semaphore,1))
+        {
+            continue;
+        }
+
+        ms_count += current_thread_delay;
+
         // simulate ON
         if (simulated_gas_sensor_data)
-        {
-            // update characteristic
-            if (m_ble_connected_bool)
-            {   
-                gas_results.gas_sensor = CO;
-                gas_results.gas_ppm = 1000 + sim_ct;
-                gas_results.freq  = 10000.0f;
-                gas_results.Z_im += sim_ct;
-                gas_results.Z_re -= sim_ct;
-                p_data_length = sizeof(gas_sensor_results_t);
-                memcpy(&p_data[0], &gas_results, p_data_length);
-                gas_characteristic_update(ble_gas_srv_gas_sensor_update, &p_data[0], &p_data_length);
-                
-                // swap to add some variation
-                tmp = gas_results.Z_im;
-                gas_results.Z_im += gas_results.Z_re;
-                gas_results.Z_re -= tmp;
+        { 
+            // simulated data
+            generate_simulated_aducm355_data(&gas_results[0]);
 
-                sim_ct++;
-                if (sim_ct == 0)
-                {
-                  gas_results.gas_ppm = gas_results.Z_im = gas_results.Z_re = 0;
-                }
-            }
+            // update
+            measurement_done = true;
         }
         else // simulate OFF
         {
             // start new measurement if not already in progress
             if(measurement_in_progress == false)
             {
-                err_code = start_aducm355_measurement_seq(CO2);
+                err_code = start_aducm355_measurement_seq(ALL);
                 APP_ERROR_CHECK(err_code);
                 measurement_in_progress = true;
 
@@ -948,30 +1006,90 @@ static void aducm355_measure_task (void * pvParameter)
             }
             else // else wait for it to finish / continue on
             {
-                err_code = continue_aducm355_measurement_seq(&gas_results, &measurement_done);
+                err_code = continue_aducm355_measurement_seq(&gas_results[0], &measurement_done);
                 APP_ERROR_CHECK(err_code);       
             }
-
-            // if measurement is done, upload the measurement and increase thread interval back up
-            if (measurement_done)
-            {
-                // update characteristic
-                if (m_ble_connected_bool)
-                {
-                    p_data_length = sizeof(gas_sensor_results_t);
-                    memcpy(&p_data[0], &gas_results, p_data_length);
-                    gas_characteristic_update(ble_gas_srv_gas_sensor_update, &p_data[0], &p_data_length);
-                }
-
-                // clear new measurement
-                measurement_in_progress = measurement_done = false;
-                num_measurements++;
-            
-                // delay until next measurement
-                current_thread_delay = ADUCM355_MEASURE_INTERVAL;
-            }
         }
+
+        // if measurement is done, upload the measurement and increase thread interval back up
+        if (measurement_done)
+        {
+            latest_measurement_data.gas_ppm = gas_results[0].gas_ppm;
+            latest_measurement_data.gas_sensor_type = gas_results[0].gas_sensor;
+
+            // update characteristic is connected
+            if (m_ble_connected_bool)
+            {   
+                memcpy(&p_data[1], (uint8_t*) &gas_results, sizeof(gas_sensor_results_t)*16);
+                //gas_characteristic_update(ble_gas_srv_gas_sensor_update, (uint8_t*) &gas_results, &p_data_length);
+                gas_characteristic_update(ble_gas_srv_gas_sensor_update, &p_data[0], &p_data_length);
+                current_thread_delay = ADUCM355_MEASURE_INTERVAL_CONNECTED;
+            }
+            else // store in EEPROM otherwise
+            {
+                // using i2c, make sure BME280 thread doesn't contest
+                if(xSemaphoreTake(i2c_semaphore,ADUCM355_MEASURE_INTERVAL_CONNECTED))
+                {
+                    store_sensor_data_eeprom(&latest_measurement_data, &ms_count);
+                    xSemaphoreGive(i2c_semaphore);
+                }
+                current_thread_delay = ADUCM355_MEASURE_INTERVAL_DISCONNECTED;
+            }
+
+            // clear new measurement
+            measurement_in_progress = measurement_done = false;
+            num_measurements++;
+
+            // reset counter
+            ms_count = 0;
+        }
+        xSemaphoreGive(use_aducm355_semaphore);
         vTaskDelay(current_thread_delay);
+    }
+}
+
+/**@brief Function for handling commands from the BLE app.
+ */
+static void aducm355_command_task (void * pvParameter)
+{
+    static bool restart = true;
+    static bool finished = false;
+    static m24m02_storage_block_t record = {0};
+
+    UNUSED_PARAMETER(pvParameter);
+    while(1)
+    {
+        // try to take it immediately
+        if(xSemaphoreTake(use_aducm355_semaphore,5))
+        {
+            if(read_eeprom_cmd)
+            {   
+                get_sensor_data_eeprom(&restart, &finished, &record);
+                restart = false;
+         
+                // clear command
+                if (finished)
+                {
+                    restart = true;
+                    read_eeprom_cmd = false;
+                }
+            }
+            if(clear_eeprom_cmd)
+            {
+                // clear command
+                clear_eeprom_cmd = false;
+            }
+            if(update_utc_time)
+            {
+                // clear command
+                update_utc_time = false;
+            }
+            if(update_aducm355_config)
+            {
+            }
+            xSemaphoreGive(use_aducm355_semaphore);
+        }
+        vTaskDelay(ADUCM355_MEASURE_CHECK_INTERVAL);
     }
 }
 
@@ -982,8 +1100,20 @@ static void external_sensor_init(void)
     BaseType_t xReturned;
 
     // initialize i2c + spi sensors
-    //ext_device_init(M24M02);
+    ext_device_init(M24M02);
     ext_device_init(BME280 | SIMULATE);
+
+  /* //test reading stored measurements
+    bool restart = true;
+    bool finished = false;
+    m24m02_storage_block_t record = {0};
+    get_sensor_data_eeprom(&restart, &finished, &record);
+    restart = false;
+    while(!finished)
+    {
+        get_sensor_data_eeprom(&restart, &finished, &record);
+    }
+*/
 
     xReturned = xTaskCreate(bme280_measure_task, "BME280", configMINIMAL_STACK_SIZE + 200, NULL, 1, &bme280_measure_task_handle);
     if (xReturned != pdPASS)
@@ -1001,16 +1131,41 @@ static void gas_sensor_init(void)
     BaseType_t xReturned;
 
     ret_code_t ret_code;
+
+    // LED2 on = error
+    if(!nrf_drv_gpiote_is_init())
+    {
+        APP_ERROR_CHECK(nrf_drv_gpiote_init());
+    }
+#ifdef BOARD_MATCHBOX_V1
+    nrf_drv_gpiote_out_config_t out_config = GPIOTE_CONFIG_OUT_SIMPLE(true); // false = init low
+#else
+    nrf_drv_gpiote_out_config_t out_config = GPIOTE_CONFIG_OUT_SIMPLE(false); // false = init low
+#endif
+    APP_ERROR_CHECK(nrf_drv_gpiote_out_init(LED_2, &out_config));
+
     if (!simulated_gas_sensor_data)
     {
-        ret_code = init_aducm355_iface();
-        APP_ERROR_CHECK(ret_code);
+        while(init_aducm355_iface())
+        {
+            nrf_delay_ms(50);
+        }
+        //ret_code = init_aducm355_iface();
+        //APP_ERROR_CHECK(ret_code);
     }
+    nrf_drv_gpiote_out_toggle(LED_2);
 
-    xReturned = xTaskCreate(aducm355_measure_task, "BME280", configMINIMAL_STACK_SIZE + 200, NULL, 1, &aducm355_measure_task_handle);
+    xReturned = xTaskCreate(aducm355_measure_task, "ADUCM355_Meas", configMINIMAL_STACK_SIZE + 200, NULL, 1, &aducm355_measure_task_handle);
     if (xReturned != pdPASS)
     {
-        NRF_LOG_ERROR("ADUCM355 task not created.");
+        NRF_LOG_ERROR("ADUCM355 measure task not created.");
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+
+    xReturned = xTaskCreate(aducm355_command_task, "ADUCM355_Command", configMINIMAL_STACK_SIZE + 200, NULL, 1, &aducm355_command_task_handle);
+    if (xReturned != pdPASS)
+    {
+        NRF_LOG_ERROR("ADUCM355 command task not created.");
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 }
@@ -1023,6 +1178,7 @@ int main(void)
 
     // Initialize semaphores
     i2c_semaphore = xSemaphoreCreateMutex();
+    use_aducm355_semaphore = xSemaphoreCreateMutex();
 
     // Initialize modules.
     log_init();
@@ -1049,6 +1205,15 @@ int main(void)
     SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
 
     NRF_LOG_INFO("Reboot.");
+
+     // Initialize modules.
+    initialize_flash();
+
+    // Set advertising name from flash
+    if (!read_flash_ble_advertisement_name(&m_ble_advertising_name[0]))
+    {
+        memcpy(&m_ble_advertising_name[0], (const uint8_t *)DEVICE_NAME, strlen(DEVICE_NAME));
+    }
 
     // Configure and initialize the BLE stack.
     ble_stack_init();

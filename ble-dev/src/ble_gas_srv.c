@@ -1,4 +1,3 @@
-/* This code belongs in ble_cus.c*/
 #include "sdk_common.h"
 #include "ble_srv_common.h"
 #include "ble_gas_srv.h"
@@ -204,7 +203,7 @@ uint32_t ble_gas_srv_init(ble_gas_srv_t * p_gas_srv, ble_gas_srv_init_t const * 
     memset(&add_char_params, 0, sizeof(add_char_params));
     add_char_params.uuid                     = GAS_SENSOR_DATA_CHAR_UUID;
     add_char_params.uuid_type                = p_gas_srv->uuid_type;
-    add_char_params.max_len                  = BLE_GAS_NORMAL_DATA_LEN;
+    add_char_params.max_len                  = BLE_GAS_MAX_DATA_LEN;
     add_char_params.init_len                 = sizeof(uint8_t);
     add_char_params.is_var_len               = true;
     add_char_params.char_props.read          = 1;
@@ -376,7 +375,7 @@ uint32_t ble_gas_srv_gas_sensor_update(ble_gas_srv_t * p_gas_srv,
         return NRF_ERROR_NULL;
     }
 
-    if (*p_length > BLE_GAS_NORMAL_DATA_LEN)
+    if (*p_length > BLE_GAS_MAX_DATA_LEN)
     {
         return NRF_ERROR_INVALID_PARAM;
     }

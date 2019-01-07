@@ -42,17 +42,49 @@
 
 #include <stdint.h>
 #include "nrf.h"
+#include "bme280_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#define MAX_NUM_EEPROM_RECORDS_PER_BLE_PAYLOAD 10
+
+#define M24M02_INFO_ADDRESS          (0x00000000)
+#define M24M02_DATA_VALID            (0xA55A5AA5)
+#define M24M02_UTC_TIME_ADDRESS      (0x00000004)
+#define M24M02_NUM_RECORDS_ADDRESS   (0x00000008)
+#define M24M02_CURRENT_WRITE_ADDRESS (0x0000000A)
+#define M24M02_FIRST_DATA_ADDRESS    (0x0000000E)
+
+#pragma(1)
 typedef enum
 {
     BME280   = 1 << 0,
     M24M02   = 1 << 1,
     SIMULATE = 1 << 7
 } ext_device_type_t;
+
+#pragma(1)
+typedef struct
+{
+    uint32_t magic_number;
+    uint32_t utc_time_ref_sec;
+    uint16_t num_records;
+    uint32_t current_write_address;
+} m24m02_info_t;
+
+#pragma(1)
+typedef struct
+{
+    uint32_t utc_time_ref_sec;
+    uint16_t gas_sensor_type;
+    uint16_t gas_ppm;
+    uint32_t pressure;
+    int32_t  temperature;
+    uint32_t humidity;
+} m24m02_storage_block_t;
+
 
 /**@brief Initialize External Device Interfaces
  *
@@ -63,6 +95,14 @@ void ext_device_init(ext_device_type_t use_sensors);
  *
  */
 int8_t get_sensor_data(ext_device_type_t get_sensor, uint8_t * p_data, uint16_t * p_data_length);
+
+int8_t update_utc_time_eeprom(uint32_t * utc_time_new);
+
+int8_t store_sensor_data_eeprom(m24m02_storage_block_t *new_data, uint32_t *ms_since_last_update);
+
+int8_t get_sensor_data_eeprom(bool * restart_read, bool * finished_read, m24m02_storage_block_t *recorded_data);
+
+int8_t clear_sensor_data_eeprom(uint8_t * p_data, uint16_t * p_data_length);
 
 #ifdef __cplusplus
 }
