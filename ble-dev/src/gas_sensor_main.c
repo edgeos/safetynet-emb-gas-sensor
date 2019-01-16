@@ -103,12 +103,15 @@
 // nv flash
 #include "nvflash_controller.h"
 
+// saadc for battery measurement
+#include "saadc_controller.h"
+
 /**\name Macro Definitions */
 #define BME280_MEASURE_INTERVAL                   1000                              /**< BME280 measurement interval (ms). */
-#define ADUCM355_MEASURE_INTERVAL_CONNECTED       1700                              /**< ADUCM355 measurement interval (ms). */
-#define ADUCM355_MEASURE_INTERVAL_DISCONNECTED    1700                              /**< ADUCM355 measurement interval (ms). */
-#define ADUCM355_MEASURE_CHECK_INTERVAL           20                                 /**< ADUCM355 check rx buffer interval (ms). */
-#define DEVICE_NAME                         "GE Gas Sensor"                         /**< Name of device. Will be included in the advertising data. */
+#define ADUCM355_MEASURE_INTERVAL_CONNECTED       1800                              /**< ADUCM355 measurement interval (ms). */
+#define ADUCM355_MEASURE_INTERVAL_DISCONNECTED    1800                              /**< ADUCM355 measurement interval (ms). */
+#define ADUCM355_MEASURE_CHECK_INTERVAL           20                                /**< ADUCM355 check rx buffer interval (ms). */
+#define DEVICE_NAME                         "Gas Sense"                             /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                   "GE"                                    /**< Manufacturer. Will be passed to Device Information Service. */
 #define APP_BLE_OBSERVER_PRIO               3                                       /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 #define APP_BLE_CONN_CFG_TAG                1                                       /**< A tag identifying the SoftDevice BLE configuration. */
@@ -118,10 +121,10 @@
 #define MIN_BATTERY_LEVEL                   81                                      /**< Minimum simulated battery level. */
 #define MAX_BATTERY_LEVEL                   100                                     /**< Maximum simulated battery level. */
 #define BATTERY_LEVEL_INCREMENT             1                                       /**< Increment between each simulated battery level measurement. */
-#define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(200, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.4 seconds). */
-#define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(400, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (0.65 second). */
+#define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(600, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.4 seconds). */
+#define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(1000, UNIT_1_25_MS)       /**< Maximum acceptable connection interval (0.65 second). */
 #define SLAVE_LATENCY                       0                                       /**< Slave latency. */
-#define CONN_SUP_TIMEOUT                    MSEC_TO_UNITS(4000, UNIT_10_MS)         /**< Connection supervisory time-out (4 seconds). */
+#define CONN_SUP_TIMEOUT                    MSEC_TO_UNITS(8000, UNIT_10_MS)         /**< Connection supervisory time-out (4 seconds). */
 #define FIRST_CONN_PARAMS_UPDATE_DELAY      5000                                    /**< Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY       30000                                   /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
 #define MAX_CONN_PARAMS_UPDATE_COUNT        3                                       /**< Number of attempts before giving up the connection parameter negotiation. */
@@ -146,7 +149,11 @@ static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;            /**< Handle 
 static sensorsim_cfg_t   m_battery_sim_cfg;                         /**< Battery Level sensor simulator configuration. */
 static sensorsim_state_t m_battery_sim_state;                       /**< Battery Level sensor simulator state. */
 static bool m_ble_connected_bool = false;
+#ifdef BOARD_MATCHBOX_V1
+static bool simulated_gas_sensor_data = false;
+#else
 static bool simulated_gas_sensor_data = true;
+#endif
 static char m_ble_advertising_name[MAX_BLE_NAME_LENGTH] = {0};
 
 // global bools for handling phone-to-device ble commands (gas service config characteristic)
@@ -169,6 +176,7 @@ static TimerHandle_t m_battery_timer;                               /**< Definit
 static TaskHandle_t bme280_measure_task_handle;                     /**< Definition of BME280 measurement task. */
 static TaskHandle_t aducm355_measure_task_handle;                   /**< Definition of ADuCM355 measurement task. */
 static TaskHandle_t aducm355_command_task_handle;                   /**< Definition of ADuCM355 command handler task. */
+static TaskHandle_t battery_task_handle;                            /**< Definition of battery measure handler task. */
 xSemaphoreHandle i2c_semaphore = 0;
 xSemaphoreHandle use_aducm355_semaphore = 0;
 
@@ -236,9 +244,9 @@ static void pm_evt_handler(pm_evt_t const * p_evt)
 static void battery_level_update(void)
 {
     ret_code_t err_code;
-    uint8_t  battery_level;
+    uint8_t battery_level = 0;
 
-    battery_level = (uint8_t)sensorsim_measure(&m_battery_sim_state, &m_battery_sim_cfg);
+    saadc_sample_battery_level(&battery_level);
 
     err_code = ble_bas_battery_level_update(&m_bas, battery_level, BLE_CONN_HANDLE_ALL);
     if ((err_code != NRF_SUCCESS) &&
@@ -260,10 +268,25 @@ static void battery_level_update(void)
  * @param[in] xTimer Handler to the timer that called this function.
  *                   You may get identifier given to the function xTimerCreate using pvTimerGetTimerID.
  */
-static void battery_level_meas_timeout_handler(TimerHandle_t xTimer)
+static void battery_level_meas_timeout_handler(void * pvParameter) // (TimerHandle_t xTimer)
 {
-    UNUSED_PARAMETER(xTimer);
-    battery_level_update();
+    UNUSED_PARAMETER(pvParameter);
+    //UNUSED_PARAMETER(xTimer);
+    while(1)
+    {
+        // this function has been converted to a Task instead of a Timer due to peripheral contention
+        if(xSemaphoreTake(use_aducm355_semaphore,10))
+        {
+            if(xSemaphoreTake(i2c_semaphore,10))
+            { 
+                battery_level_update();
+                xSemaphoreGive(i2c_semaphore);
+            }
+            xSemaphoreGive(use_aducm355_semaphore);
+        }
+        vTaskDelay(1000);
+    }
+    
 }
 
 
@@ -273,20 +296,29 @@ static void battery_level_meas_timeout_handler(TimerHandle_t xTimer)
  */
 static void timers_init(void)
 {
-    // Initialize timer module.
-    ret_code_t err_code = app_timer_init();
-    APP_ERROR_CHECK(err_code);
+//    // Initialize timer module.
+//    ret_code_t err_code = app_timer_init();
+//    APP_ERROR_CHECK(err_code);
+//
+//    // Create timers.
+//    m_battery_timer = xTimerCreate("BATT",
+//                                   BATTERY_LEVEL_MEAS_INTERVAL,
+//                                   pdTRUE,
+//                                   NULL,
+//                                   battery_level_meas_timeout_handler);
+//
+//    /* Error checking */
+//    if ( (NULL == m_battery_timer) )
+//    {
+//        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+//    }
 
-    // Create timers.
-    m_battery_timer = xTimerCreate("BATT",
-                                   BATTERY_LEVEL_MEAS_INTERVAL,
-                                   pdTRUE,
-                                   NULL,
-                                   battery_level_meas_timeout_handler);
+    BaseType_t xReturned;
 
-    /* Error checking */
-    if ( (NULL == m_battery_timer) )
+    xReturned = xTaskCreate(battery_level_meas_timeout_handler, "BATTERY", configMINIMAL_STACK_SIZE + 200, NULL, 1, &battery_task_handle);
+    if (xReturned != pdPASS)
     {
+        NRF_LOG_ERROR("Battery Measure task not created.");
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 }
@@ -329,7 +361,7 @@ void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
     if ((m_conn_handle == p_evt->conn_handle) && (p_evt->evt_id == NRF_BLE_GATT_EVT_ATT_MTU_UPDATED))
     {
         //max_length = p_evt->params.att_mtu_effective - OPCODE_LENGTH - HANDLE_LENGTH;
-        NRF_LOG_INFO("Data len is set to 0x%X(%d)", max_length, max_length);
+        NRF_LOG_INFO("Data len is set to 0x%X(%d)", NRF_SDH_BLE_GATT_MAX_MTU_SIZE, NRF_SDH_BLE_GATT_MAX_MTU_SIZE);
     }
     NRF_LOG_DEBUG("ATT MTU exchange completed. central 0x%x peripheral 0x%x",
                   p_gatt->att_mtu_desired_central,
@@ -525,7 +557,7 @@ static void conn_params_init(void)
     cp_init.first_conn_params_update_delay = FIRST_CONN_PARAMS_UPDATE_DELAY;
     cp_init.next_conn_params_update_delay  = NEXT_CONN_PARAMS_UPDATE_DELAY;
     cp_init.max_conn_params_update_count   = MAX_CONN_PARAMS_UPDATE_COUNT;
-    cp_init.disconnect_on_fail             = false;
+    cp_init.disconnect_on_fail             = true;
     cp_init.evt_handler                    = on_conn_params_evt;
     cp_init.error_handler                  = conn_params_error_handler;
 
@@ -906,6 +938,12 @@ static void bme280_measure_task (void * pvParameter)
     UNUSED_PARAMETER(pvParameter);
     while(1)
     {
+#ifdef BOARD_PCA10056
+        get_sensor_data(BME280, &p_data[0], &p_data_length);
+        memcpy(&latest_measurement_data.temperature, &p_data[0], sizeof(latest_measurement_data.temperature));
+        memcpy(&latest_measurement_data.humidity, &p_data[4], sizeof(latest_measurement_data.humidity));
+        memcpy(&latest_measurement_data.pressure, &p_data[8], sizeof(latest_measurement_data.pressure));
+#else
         if(xSemaphoreTake(i2c_semaphore,BME280_MEASURE_INTERVAL))
         {
             get_sensor_data(BME280, &p_data[0], &p_data_length);
@@ -914,6 +952,7 @@ static void bme280_measure_task (void * pvParameter)
             memcpy(&latest_measurement_data.pressure, &p_data[8], sizeof(latest_measurement_data.pressure));
             xSemaphoreGive(i2c_semaphore);
         }
+#endif
         if(m_ble_connected_bool)
         {
             gas_characteristic_update(ble_gas_srv_temp_humid_pressure_update, &p_data[0], &p_data_length);
@@ -964,13 +1003,13 @@ static void aducm355_measure_task (void * pvParameter)
     static gas_sensor_results_t gas_results[16] = {0};
     static gas_sensing_state_t gas_sensing_state;
     static uint32_t ms_count = 0;
-    static bool aducm355_no_iface = true;
+    static bool aducm355_recover_iface = false;
     static uint32_t num_measurements = 0;
     static uint32_t current_thread_delay = ADUCM355_MEASURE_INTERVAL_DISCONNECTED;
 
     uint16_t p_data_length = sizeof(gas_sensor_results_t)*16 + 1;
     uint8_t  p_data[sizeof(gas_sensor_results_t)*16 + 1] = {0};
-    p_data[0] = 16;
+    get_num_aducm355_measurements(&p_data[0]);
     
     UNUSED_PARAMETER(pvParameter);
     while(1)
@@ -978,6 +1017,34 @@ static void aducm355_measure_task (void * pvParameter)
         // try to take it immediately
         if(!xSemaphoreTake(use_aducm355_semaphore,1))
         {
+            continue;
+        }
+
+        if (aducm355_recover_iface)
+        {
+#ifdef BOARD_MATCHBOX_V1
+            // error LED on
+            nrf_drv_gpiote_out_set(LED_2);
+#else
+            nrf_drv_gpiote_out_clear(LED_2);
+#endif
+            // restart interface
+            err_code = init_aducm355_iface();
+
+            if(!err_code)
+            {
+                // error LED off
+                nrf_drv_gpiote_out_toggle(LED_2);
+                aducm355_recover_iface = false;
+                current_thread_delay = ADUCM355_MEASURE_INTERVAL_CONNECTED;
+                reset_aducm355_state_vars();
+            }
+            else
+            {
+                current_thread_delay = ADUCM355_MEASURE_CHECK_INTERVAL;
+            }
+            xSemaphoreGive(use_aducm355_semaphore);
+            vTaskDelay(current_thread_delay);
             continue;
         }
 
@@ -998,8 +1065,14 @@ static void aducm355_measure_task (void * pvParameter)
             if(measurement_in_progress == false)
             {
                 err_code = start_aducm355_measurement_seq(ALL);
-                APP_ERROR_CHECK(err_code);
-                measurement_in_progress = true;
+                if (err_code == 0)
+                {
+                    measurement_in_progress = true;
+                }
+                else
+                {
+                    aducm355_recover_iface = true; 
+                }
 
                 // check more often once a measurement has started
                 current_thread_delay = ADUCM355_MEASURE_CHECK_INTERVAL;
@@ -1007,7 +1080,11 @@ static void aducm355_measure_task (void * pvParameter)
             else // else wait for it to finish / continue on
             {
                 err_code = continue_aducm355_measurement_seq(&gas_results[0], &measurement_done);
-                APP_ERROR_CHECK(err_code);       
+                if (err_code != 0)
+                {
+                    measurement_in_progress = false;
+                    aducm355_recover_iface = true; 
+                }       
             }
         }
 
@@ -1028,13 +1105,14 @@ static void aducm355_measure_task (void * pvParameter)
             else // store in EEPROM otherwise
             {
                 // using i2c, make sure BME280 thread doesn't contest
+#ifndef BOARD_PCA10056 
                 if(xSemaphoreTake(i2c_semaphore,ADUCM355_MEASURE_INTERVAL_CONNECTED))
                 {
-#ifndef BOARD_PCA10056 
-                    store_sensor_data_eeprom(&latest_measurement_data, &ms_count);
-#endif
+
+                    //store_sensor_data_eeprom(&latest_measurement_data, &ms_count);
                     xSemaphoreGive(i2c_semaphore);
                 }
+#endif
                 current_thread_delay = ADUCM355_MEASURE_INTERVAL_DISCONNECTED;
             }
 
@@ -1102,12 +1180,13 @@ static void external_sensor_init(void)
     BaseType_t xReturned;
 
     // initialize i2c + spi sensors
-#ifndef BOARD_PCA10056
-    ext_device_init(M24M02);
-#endif
+#ifdef BOARD_MATCHBOX_V1
+    ext_device_init(BME280);// | M24M02);
+#else
     ext_device_init(BME280 | SIMULATE);
+#endif
 
-  /* //test reading stored measurements
+  /* //test code for reading stored measurements
     bool restart = true;
     bool finished = false;
     m24m02_storage_block_t record = {0};
@@ -1148,14 +1227,19 @@ static void gas_sensor_init(void)
 #endif
     APP_ERROR_CHECK(nrf_drv_gpiote_out_init(LED_2, &out_config));
 
+    for (uint8_t lcv = 0; lcv < 20; lcv++)
+    {
+        nrf_drv_gpiote_out_toggle(LED_2);
+        nrf_delay_ms(500);
+    }
+
     if (!simulated_gas_sensor_data)
     {
+        // check for ADI chip, if not here then stay here.
         while(init_aducm355_iface())
         {
-            nrf_delay_ms(50);
+            nrf_delay_ms(500);
         }
-        //ret_code = init_aducm355_iface();
-        //APP_ERROR_CHECK(ret_code);
     }
     nrf_drv_gpiote_out_toggle(LED_2);
 
@@ -1210,17 +1294,28 @@ int main(void)
 
     NRF_LOG_INFO("Reboot.");
 
+    // Configure and initialize the BLE stack.
+    ble_stack_init();
+
      // Initialize modules.
     initialize_flash();
+
+    char ble_addr_first2bytes[4];
+
+    // Get actual BLE address in case it is different from hardware register BLE address
+    ble_gap_addr_t device_addr;  // 48-bit address, LSB format
+    sd_ble_gap_addr_get(&device_addr);
+    sprintf(&ble_addr_first2bytes[0],"%x",device_addr.addr[0]);
+    sprintf(&ble_addr_first2bytes[2],"%x",device_addr.addr[1]);
 
     // Set advertising name from flash
     if (!read_flash_ble_advertisement_name(&m_ble_advertising_name[0]))
     {
+        // default name should be DEVICE_NAME + first 2 bytes of MAC Address
+        memset(&m_ble_advertising_name[0], 32, MAX_BLE_NAME_LENGTH);
         memcpy(&m_ble_advertising_name[0], (const uint8_t *)DEVICE_NAME, strlen(DEVICE_NAME));
+        memcpy(&m_ble_advertising_name[strlen(DEVICE_NAME)+1], &ble_addr_first2bytes[0], sizeof(ble_addr_first2bytes));
     }
-
-    // Configure and initialize the BLE stack.
-    ble_stack_init();
 
     // Initialize modules.
     timers_init();
@@ -1232,7 +1327,7 @@ int main(void)
     sensor_simulator_init();
     conn_params_init();
     //peer_manager_init();
-    application_timers_start(); // this includes the timer for the SAADC sampling, should only do this while connected (power saving)
+    //application_timers_start(); // this includes the timer for the SAADC sampling, should only do this while connected (power saving)
     
     // added for gas sensor functions
     external_sensor_init();

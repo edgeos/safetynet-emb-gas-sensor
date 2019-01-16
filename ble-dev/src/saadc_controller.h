@@ -37,70 +37,23 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef ADUCM355_CONTROLLER_H__
-#define ADUCM355_CONTROLLER_H__
+
+#ifndef VBAND_SAADC_CONTROLLER_H__
+#define VBAND_SAADC_CONTROLLER_H__
 
 #include <stdint.h>
 #include "nrf.h"
+#include "nrf_drv_saadc.h"
+#include "nrf_drv_rtc.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#pragma pack(1) 
-
-/**@brief Gas Sensor State */
-typedef enum
-{
-    IDLE,             // aducm355 in sleep state
-    PRIMING,          // aducm355 in sleep state, heaters turned on
-    PRIMED,           // aducm355 in idle state, heaters in ready state
-    MEASURING,        // aducm355 in measure state, heaters still on
-    MEASUREMENT_DONE  // aducm355 in idle state, heaters off, algorithms
-} gas_sensing_state_t;
-
-/**@brief Gas Sensor Types */
-typedef enum
-{
-    GAS1 = 1 << 0,            
-    GAS2 = 1 << 1,
-    GAS3 = 1 << 2,
-    GAS4 = 1 << 3,
-    ALL  = 0xff
-} gas_sensor_t;
-
-typedef struct
-{ 
-   gas_sensor_t gas_sensor;
-   uint8_t freq;
-   float Z_re;
-   float Z_im;
-   float gas_ppm;
-} gas_sensor_results_t;
-
-/**@brief Initialize ADuCM355 Uart Interface
- *
- */
-uint32_t init_aducm355_iface(void);
-
-uint32_t start_aducm355_measurement_seq(gas_sensor_t gas_sensors);
-
-uint32_t continue_aducm355_measurement_seq(gas_sensor_results_t *gas_results, bool * measurement_done);
-
-uint32_t stop_aducm355_measurement_seq(void);
-
-void check_gas_sensing_state(gas_sensing_state_t *buf);
-
-void check_aducm355_rx_buffer(void);
-
-void reset_aducm355_state_vars(void);
-
-void get_num_aducm355_measurements(uint8_t *num_meas);
-
-uint32_t send_ping_aducm355(void);
+void saadc_sample_battery_level(uint8_t *battery_level);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* ADUCM355_CONTROLLER_H__ */
+#endif /* VBAND_SAADC_CONTROLLER_H__ */

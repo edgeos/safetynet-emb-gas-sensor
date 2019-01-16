@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #ifdef BOARD_MATCHBOX_V1
-#define PRIMETIME_SEC       120
+#define PRIMETIME_SEC       1
 #else
 #define PRIMETIME_SEC       1
 #endif
@@ -23,7 +23,7 @@ typedef struct
    float a2;
    float a3;
    float a4;
-   float a5;
+   bool heater_always_on;
    bool mux_enable;
    bool mux_s0;
    bool mux_s1;

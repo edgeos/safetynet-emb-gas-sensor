@@ -26,8 +26,13 @@ NRF_FSTORAGE_DEF(nrf_fstorage_t fstorage) =
      * You must set these manually, even at runtime, before nrf_fstorage_init() is called.
      * The function nrf5_flash_end_addr_get() can be used to retrieve the last address on the
      * last page of flash available to write data. */
+#ifdef BOARD_PCA10056
+    .start_addr = 0xfe000,
+    .end_addr   = 0xfffff,
+#else    
     .start_addr = 0x7e000,
     .end_addr   = 0x7ffff,
+#endif
 };
 nrf_fstorage_api_t * p_fs_api;
 

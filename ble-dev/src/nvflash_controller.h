@@ -8,7 +8,11 @@
 extern "C" {
 #endif
 
+#ifndef BOARD_PCA10056
 #define BLE_NAME_ADDRESS                (0x7e000)
+#else
+#define BLE_NAME_ADDRESS                (0xfe000)
+#endif
 
 #define FLASHWRITE_BLOCK_VALID          (0xA55A5AA5)
 #define FLASHWRITE_BLOCK_INVALID        (0xA55A0000)

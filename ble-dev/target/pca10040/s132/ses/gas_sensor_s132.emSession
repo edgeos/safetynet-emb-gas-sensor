@@ -2,16 +2,16 @@
 <session>
  <Bookmarks/>
  <Breakpoints groups="Breakpoints" active_group="Breakpoints">
-  <BreakpointListItem trigger="" line="382" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="../../../../src/aducm355/aducm355_controller.c" useHWbreakpoint="false"/>
-  <BreakpointListItem trigger="" line="1111" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="../../../../src/gas_sensor_main.c" useHWbreakpoint="false"/>
-  <BreakpointListItem trigger="" line="145" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="../../../../nordic_sdk/components/libraries/fstorage/nrf_fstorage.c" useHWbreakpoint="false"/>
+  <BreakpointListItem trigger="" line="367" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="../../../../src/bme280/bme280.c" useHWbreakpoint="false"/>
+  <BreakpointListItem trigger="" line="1161" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="4" filename="../../../../src/gas_sensor_main.c" useHWbreakpoint="false"/>
+  <BreakpointListItem trigger="" line="254" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="../../../../src/gas_sensor_main.c" useHWbreakpoint="false"/>
  </Breakpoints>
  <ExecutionProfileWindow/>
  <FrameBufferWindow>
   <FrameBufferWindow bufferHeight="-1" addressSpace="" addressText="" bufferWidth="-1"/>
  </FrameBufferWindow>
  <Memory1>
-  <MemoryWindow addressSpace="" dataSize="1" autoEvaluate="0" viewMode="0" addressOrder="0" columnsText="" refreshPeriod="0" name="gas_sensor_s132" radix="16" sizeText="20" addressText="p_data"/>
+  <MemoryWindow addressSpace="" dataSize="1" autoEvaluate="0" viewMode="0" addressOrder="0" columnsText="" refreshPeriod="0" name="gas_sensor_s132" radix="16" sizeText="sizeof buf" addressText="0x00004001"/>
  </Memory1>
  <Memory2>
   <MemoryWindow addressSpace="" dataSize="1" autoEvaluate="0" viewMode="0" addressOrder="0" columnsText="" refreshPeriod="0" name="gas_sensor_s132" radix="16" sizeText="" addressText=""/>
@@ -30,6 +30,7 @@
   <ProjectSessionItem path="gas_sensor_s132;gas_sensor_s132;Board Support"/>
   <ProjectSessionItem path="gas_sensor_s132;gas_sensor_s132;None"/>
   <ProjectSessionItem path="gas_sensor_s132;gas_sensor_s132;nRF_BLE_Services"/>
+  <ProjectSessionItem path="gas_sensor_s132;gas_sensor_s132;nRF_Drivers"/>
   <ProjectSessionItem path="gas_sensor_s132;gas_sensor_s132;nRF_Libraries"/>
   <ProjectSessionItem path="gas_sensor_s132;gas_sensor_s132;Sensor Drivers"/>
   <ProjectSessionItem path="gas_sensor_s132;gas_sensor_s132;Third Parties"/>
@@ -56,7 +57,10 @@
  <Watch1>
   <Watches active="1" update="Never">
    <Watchpoint numelements="0" expression="m24m02_info" evalMode="0" name="m24m02_info" radix="16" linenumber="282" filename="../../../../src/i2c_device_controller.c" list=""/>
-   <Watchpoint numelements="255" expression="p_data" evalMode="2" name="p_data" radix="-1" linenumber="1093" filename="../../../../src/gas_sensor_main.c" list=""/>
+   <Watchpoint numelements="255" expression="p_data" evalMode="2" name="p_data" radix="-1" linenumber="1140" filename="../../../../src/gas_sensor_main.c" list=""/>
+   <Watchpoint numelements="21" expression="uart_tx_buffer" evalMode="2" name="uart_tx_buffer" radix="-1" linenumber="312" filename="../../../../src/aducm355/aducm355_controller.c" list=""/>
+   <Watchpoint numelements="0" expression="aducm355_result" evalMode="0" name="aducm355_result" radix="-1" linenumber="495" filename="../../../../src/aducm355/aducm355_controller.c" list=""/>
+   <Watchpoint numelements="16" expression="gas_results" evalMode="2" name="gas_results" radix="-1" linenumber="968" filename="../../../../src/gas_sensor_main.c" list=""/>
   </Watches>
  </Watch1>
  <Watch2>
@@ -69,27 +73,39 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="1028" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/gas_sensor_main.c" selected="0" top="981" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="2" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/ble_gas_srv.c" selected="0" top="0" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="50" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/ble_gas_srv.h" selected="0" top="6" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="307" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/i2c_device_controller.c" selected="0" top="0" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="73" y="352" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/gas_sensor_main.c" selected="0" top="329" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="354" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/ble_gas_srv.c" selected="0" top="330" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="28" y="44" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/ble_gas_srv.h" selected="0" top="21" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="10" y="202" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/i2c_device_controller.c" selected="0" top="181" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="297" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/bme280/bme280_defs.h" selected="0" top="271" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="73" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/m24m02/m24m02.c" selected="0" top="47" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="6" y="123" useTextEdit="1" useBinaryEdit="0" left="0" path="gas_sensor_s132.emProject" selected="1" top="0" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="56" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/external/freertos/source/include/FreeRTOS.h" selected="0" top="27" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="45" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../config/FreeRTOSConfig.h" selected="0" top="27" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="93" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/m24m02/m24m02.c" selected="0" top="57" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="126" useTextEdit="1" useBinaryEdit="0" left="0" path="gas_sensor_s132.emProject" selected="0" top="96" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="80" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/i2c_device_controller.h" selected="0" top="41" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="9" y="21" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/aducm355/aducm355_controller.c" selected="0" top="21" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="29" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/nvflash_controller.c" selected="0" top="0" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="611" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/aducm355/aducm355_controller.c" selected="0" top="594" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="34" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/nvflash_controller.c" selected="0" top="0" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="20" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/nvflash_controller.h" selected="0" top="0" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="147" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/libraries/hardfault/hardfault_implementation.c" selected="0" top="98" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="141" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/libraries/fstorage/nrf_fstorage.c" selected="0" top="79" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="70" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/softdevice/s132/headers/nrf_error.h" selected="0" top="38" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="68" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/softdevice/s132/headers/nrf_error.h" selected="0" top="38" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="77" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/libraries/util/sdk_macros.h" selected="0" top="40" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="99" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/libraries/util/app_error_weak.c" selected="0" top="74" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="99" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/libraries/util/app_error_weak.c" selected="0" top="50" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="48" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/libraries/util/app_error_handler_gcc.c" selected="0" top="0" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="7468" useTextEdit="1" useBinaryEdit="0" left="0" path="../config/sdk_config.h" selected="0" top="7428" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="185" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/libraries/serial/nrf_serial.c" selected="0" top="185" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="24" y="12852" useTextEdit="1" useBinaryEdit="0" left="0" path="../config/sdk_config.h" selected="0" top="12853" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="380" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/libraries/serial/nrf_serial.c" selected="0" top="359" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="21" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/aducm355/aducm355_gas_constants.c" selected="0" top="0" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="8" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/aducm355/aducm355_gas_constants.h" selected="0" top="0" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="2061" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/external/freertos/source/tasks.c" selected="0" top="2050" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="95" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/aducm355/aducm355_controller.h" selected="0" top="56" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="64" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/boards/boards.h" selected="0" top="39" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="963" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/softdevice/s132/headers/nrf_soc.h" selected="0" top="938" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="464" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/libraries/queue/nrf_queue.c" selected="0" top="415" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="525" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/integration/nrfx/legacy/nrf_drv_uart.h" selected="0" top="487" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="271" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/modules/nrfx/drivers/src/nrfx_uart.c" selected="0" top="250" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="366" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/bme280/bme280.c" selected="0" top="343" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="70" y="72" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../src/saadc_controller.c" selected="1" top="40" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="242" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/ble/ble_services/ble_bas/ble_bas.c" selected="0" top="229" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="58" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/libraries/sensorsim/sensorsim.c" selected="0" top="36" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="91" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../nordic_sdk/components/boards/pca10040.h" selected="0" top="57" codecName="Default"/>
  </Files>
- <ARMCrossStudioWindow activeProject="gas_sensor_s132" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="Debug" debugSearchFileMap="" fileDialogInitialDirectory="" debugSearchPath="" autoConnectCapabilities="3199"/>
+ <ARMCrossStudioWindow activeProject="gas_sensor_s132" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="Debug" debugSearchFileMap="" fileDialogInitialDirectory="" debugSearchPath="" autoConnectCapabilities="3711"/>
 </session>

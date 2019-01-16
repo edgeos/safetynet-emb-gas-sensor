@@ -120,7 +120,7 @@
 
 /**\name I2C addresses */
 #define BME280_I2C_ADDR_PRIM	UINT8_C(0x76)
-#define BME280_I2C_ADDR_SEC		UINT8_C(0x77)
+#define BME280_I2C_ADDR_SEC     UINT8_C(0x77)
 
 /**\name BME280 chip identifier */
 #define BME280_CHIP_ID  UINT8_C(0x60)

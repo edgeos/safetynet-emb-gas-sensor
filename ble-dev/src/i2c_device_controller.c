@@ -108,7 +108,7 @@ static uint32_t twi_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint16
     /* Prepare for the read with a register write */
     uint8_t reg_read[2] = {reg_addr, 0};
     m_xfer_done1 = false; 
-    err_code = nrf_drv_twi_tx(&m_twi, dev_id, reg_read, 1, false);
+    err_code = nrf_drv_twi_tx(&m_twi, dev_id, reg_read, 1, true);
     APP_ERROR_CHECK(err_code);
     twi_wait();
 
@@ -198,9 +198,9 @@ static void print_sensor_data(struct bme280_data *comp_data)
 #else
         //NRF_LOG_INFO("\n")
         //NRF_LOG_INFO("Temp:  %ld, Humid:  %ld  \r",comp_data->temperature, comp_data->humidity);
-        NRF_LOG_INFO("Temperature (C): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->temperature*0.01f));
-        NRF_LOG_INFO("Pressure (hPa): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->pressure/256.0f));
-        NRF_LOG_INFO("Humidity (%%RH): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->humidity/1024.0f));
+        //NRF_LOG_INFO("Temperature (C): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->temperature*0.01f));
+        //NRF_LOG_INFO("Pressure (hPa): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->pressure/256.0f));
+        //NRF_LOG_INFO("Humidity (%%RH): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->humidity/1024.0f));
 #endif
 }
 
