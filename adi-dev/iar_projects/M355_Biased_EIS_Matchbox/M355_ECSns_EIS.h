@@ -110,10 +110,10 @@ typedef struct
 /**@brief Gas Sensor Types */
 typedef enum
 {
-    GAS1 = 1 << 0,            
-    GAS2 = 1 << 1,
-    GAS3 = 1 << 2,
-    GAS4 = 1 << 3
+    GAS1 = 1,            
+    GAS2 = 2,
+    GAS3 = 3,
+    GAS4 = 4
 } gas_sensor_t;
 
 /*=========================== Function declarations ====================*/

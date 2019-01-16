@@ -43,6 +43,7 @@ to ensure that the resulting application performs as required and is safe.
 #include "M355_ECSns_EIS.h"
 #include "M355_ECSns_DCTest.h"
 #include "aducm355_cmd_protocol.h"
+#include "AfeWdtLib.h"
 
 /*
     Configure measurement for 2/3 lead sensor
@@ -134,40 +135,54 @@ void main(void)
    }
    ChargeECSensor();
    
+   // configure WDT - reset the WDT every time a full packet is received on UART, else reboot the chip
+   AfeWdtLd(0x180);  //0x180 = 3 second timeout period, 0x200 = 4 second timeout period, 0x400 = 8 second
+   AfeWdtCfg(WDT_MODE_PERIODIC,ENUM_WDT_CTL_DIV256,WDT_RESET_EN,WDT_CLKIN_DIV1); //128Hz
+   AfeWdtPowerDown(AFEWDT_OFF_FOR_PD); //Afe watchdog not running while MCU in hibernate
+   AfeWdtGo(true);
+   
    measureOn = 0;
    while(1)
    {
       if (measureOn)
-      {  
-         //AfeDioSetPin(pADI_AGPIO2, PIN1); // LED on during measurement
-         StartMeasurement();
-         SendMeasurement();
-         measureOn = 0;
-         current_state = ADUCM355_IDLE;
-         //AfeDioClrPin(pADI_AGPIO2, PIN1); // LED off
+      {       
+         StartMeasurement(); 
       }
+      
+      /*
+      // For going to sleep
       if (current_state == ADUCM355_SLEEP) // to go to sleep mode
       {
          //printf("MCU Entering hibernate mode\r\n");
          AfeDioClrPin(pADI_AGPIO2, PIN1); // LED off
-         /*Enable UART_RX wakeup interrupt before entering hiberante mode*/
+         // Enable UART_RX wakeup interrupt before entering hiberante mode 
          EiCfg(EXTUARTRX,INT_EN,INT_FALL);
-         /*AFE die enter hibernate mode*/
+         // AFE die enter hibernate mode
          AfePwrCfg(AFE_HIBERNATE);
-         /*Digital die Enter hibernater mode, no battery monitor, 24K SRAM*/
+         // Digital die Enter hibernater mode, no battery monitor, 24K SRAM
          PwrCfg(ENUM_PMG_PWRMOD_HIBERNATE,BITM_PMG_PWRMOD_MONVBATN,BITM_PMG_SRAMRET_BNK2EN);
-         /*Following instruction should not be executed before user sent 1 to wakeup MCU*/
+         // Following instruction should not be executed before user sent 1 to wakeup MCU
          //printf("MCU wake up\r\n");
       }
+      */
    }
 }
 
 void StartMeasurement()
 {
+   AfeDioSetPin(pADI_AGPIO2, PIN1); // LED on during measurement
+   DioClrPin(pADI_GPIO2,PIN4); 
    SnsACInit(CHAN0);
    SnsACTest(CHAN0);
    SnsMagPhaseCal();   //calculate impedance
    ZreZimCal(); // convert mag and phase to Z' and Z"
+   
+   // send to nordic
+   SendMeasurement();
+   measureOn = 0;
+   current_state = ADUCM355_IDLE;
+   AfeDioClrPin(pADI_AGPIO2, PIN1); // LED off
+   DioSetPin(pADI_GPIO2,PIN4); 
    
    /*power off high power exitation loop if required*/
    AfeAdcIntCfg(NOINT); //disable all ADC interrupts
@@ -182,6 +197,9 @@ void UartRxParser()
    uint8_t mid_ind = sizeof(szInSring)/2;
    if (look_for_packet(&szInSring[0],(uint8_t)ucInCnt,&rx_packet))
    {
+      // reset WDT when valid packet received
+      AfeWdtKick();
+     
       // move rx buffer pointer back to front
       ucInCnt = 0;
     
@@ -275,6 +293,11 @@ void GPIOInit(void)
    AfeDioCfgPin(pADI_AGPIO2, PIN1, 0);
    AfeDioOenPin(pADI_AGPIO2, PIN1, 1); //enable output
    AfeDioClrPin(pADI_AGPIO2, PIN1);    //set low by default (LED = off)
+   
+   // dev board LED
+   DioOenPin(pADI_GPIO2,PIN4,1);               // Enable P2.4 as Output to toggle DS2 LED
+   DioPulPin(pADI_GPIO2,PIN4,1);               // Enable pull-up
+   DioSetPin(pADI_GPIO2,PIN4);                 // Flash LED
 }
 
 /**
@@ -597,17 +620,19 @@ uint8_t SnsACTest(uint8_t channel)
          if (current_gas_selected == GAS1)
          {
             //AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);  
-            AfeSwitchDPNT(SWID_D6_CE1,SWID_P12_CE1,SWID_N7_SE1RLOAD,SWID_T7_SE1RLOAD|SWID_T9); 
+            //AfeSwitchDPNT(SWID_D6_CE1,SWID_P12_CE1,SWID_N7_SE1RLOAD,SWID_T7_SE1RLOAD|SWID_T9);
+            AfeSwitchDPNT(SWID_D6_CE1,SWID_P12_CE1,SWID_N8_DE1RLOAD,SWID_T8_DE1|SWID_T9);
          }
          else if (current_gas_selected == GAS2)
          {
             //AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);  
-            AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);  
+            //AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);    
+            AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N6_DE0RLOAD,SWID_T6_DE0|SWID_T9);    
          }
          else if (current_gas_selected == GAS3)
          {
             //AfeSwitchDPNT(SWID_D5_CE0,SWID_P11_CE0,SWID_N5_SE0RLOAD,SWID_T5_SE0RLOAD|SWID_T9);  
-            AfeSwitchDPNT(SWID_D6_CE1,SWID_P12_CE1,SWID_N2_AIN1,SWID_T2_AIN1|SWID_T9); 
+            AfeSwitchDPNT(SWID_D6_CE1,SWID_P12_CE1,SWID_N2_AIN1,SWID_T2_AIN1|SWID_T9);  
          }
          else if (current_gas_selected == GAS4)
          {
@@ -632,7 +657,7 @@ uint8_t SnsACTest(uint8_t channel)
       pADI_AFE->AFECON |= BITM_AFE_AFECON_DFTEN|BITM_AFE_AFECON_ADCCONVEN;
       while(!dftRdy)
       {
-         PwrCfg(ENUM_PMG_PWRMOD_FLEXI,0,BITM_PMG_SRAMRET_BNK2EN);
+         //PwrCfg(ENUM_PMG_PWRMOD_FLEXI,0,BITM_PMG_SRAMRET_BNK2EN);
       }
       dftRdy = 0;
       ImpResult[i].DFT_result[0] = convertDftToInt(pADI_AFE->DFTREAL);
@@ -663,7 +688,7 @@ uint8_t SnsACTest(uint8_t channel)
       pADI_AFE->AFECON |= BITM_AFE_AFECON_DFTEN|BITM_AFE_AFECON_ADCCONVEN;
       while(!dftRdy)
       {
-         PwrCfg(ENUM_PMG_PWRMOD_FLEXI,0,BITM_PMG_SRAMRET_BNK2EN);
+         //PwrCfg(ENUM_PMG_PWRMOD_FLEXI,0,BITM_PMG_SRAMRET_BNK2EN);
       }
       dftRdy = 0;
       ImpResult[i].DFT_result[2] = convertDftToInt(pADI_AFE->DFTREAL);
@@ -691,7 +716,7 @@ uint8_t SnsACTest(uint8_t channel)
       pADI_AFE->AFECON |= BITM_AFE_AFECON_DFTEN|BITM_AFE_AFECON_ADCCONVEN;
       while(!dftRdy)
       {
-         PwrCfg(ENUM_PMG_PWRMOD_FLEXI,0,BITM_PMG_SRAMRET_BNK2EN);
+         //PwrCfg(ENUM_PMG_PWRMOD_FLEXI,0,BITM_PMG_SRAMRET_BNK2EN);
       }
       dftRdy = 0;
       ImpResult[i].DFT_result[4] = convertDftToInt(pADI_AFE->DFTREAL);
