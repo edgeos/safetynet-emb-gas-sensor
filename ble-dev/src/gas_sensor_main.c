@@ -51,6 +51,16 @@
      environmental sensor and the ADuCM355 impedance measurement sensor used for estimating gas TVOC.
 */
 
+/*
+BCA - working to fix non-responsivenes of system after a given period of time
+sd_ble_gatts_hvx always returns NRF_ERROR_RESOURCES (the queue is full)
+the soft device appears to stop responding, (breakpoints in the polling task nrf_sdh_freertos.c stop firing)
+found relevant info here:
+https://devzone.nordicsemi.com/f/nordic-q-a/37204/getting-error-nrf_error_resources-when-using-more-then-one-notification-and-the-connection-crashes
+https://devzone.nordicsemi.com/f/nordic-q-a/36238/connection-failure-when-sending-and-receiving-data-simultaneously-with-softdevice-6-0-and-sdk-15/142055#142055
+added code to ble_gas_srv.c in update_characteristic to poke the soft device task, this appears to be working
+*/
+
 #include <stdint.h>
 #include <string.h>
 #include "nordic_common.h"
@@ -139,6 +149,16 @@
 #define DEAD_BEEF                           0xDEADBEEF                              /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 #define OSTIMER_WAIT_FOR_QUEUE              2                                       /**< Number of ticks to wait for the timer queue to be ready */
 
+//BCA
+//#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.1 seconds). */
+//#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(200, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (0.2 second). */
+//#define SLAVE_LATENCY                   0                                       /**< Slave latency. */
+//#define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(4000, UNIT_10_MS)         /**< Connection supervisory timeout (4 seconds). */
+//#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.1 seconds). */
+//#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(2000, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (1. second). */
+//#define SLAVE_LATENCY                   0                                       /**< Slave latency. */
+//#define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(10000, UNIT_10_MS)         /**< Connection supervisory timeout (10 seconds). */
+
 BLE_GAS_SRV_DEF(m_gas);                                             /**< Gas Sensor service instance. */
 BLE_BAS_DEF(m_bas);                                                 /**< Battery service instance. */
 NRF_BLE_GATT_DEF(m_gatt);                                           /**< GATT module instance. */
@@ -164,6 +184,11 @@ static bool update_aducm355_config = false;
 
 // globals to store new config data
 static uint32_t new_utc_time_ref = 0;
+
+// BCA - count consecutive notification failures of the gas service
+nrf_atomic_u32_t nGasNot = 0;
+// BCA - capture the handle to the soft device task
+TaskHandle_t soft_device_handle = NULL;
 
 static ble_uuid_t m_adv_uuids[] =                                   /**< Universally unique service identifiers. */
 {
@@ -249,6 +274,12 @@ static void battery_level_update(void)
     saadc_sample_battery_level(&battery_level);
 
     err_code = ble_bas_battery_level_update(&m_bas, battery_level, BLE_CONN_HANDLE_ALL);
+
+    // BCA - just checking
+    if(!nrf_sdh_is_enabled() || nrf_sdh_is_suspended()) {
+      NRF_LOG_INFO("SoftDevice not enabled or suspended");
+    }
+
     if ((err_code != NRF_SUCCESS) &&
         (err_code != NRF_ERROR_INVALID_STATE) &&
         (err_code != NRF_ERROR_RESOURCES) &&
@@ -634,6 +665,9 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
             APP_ERROR_CHECK(err_code);
+            nrf_atomic_u32_store(&nGasNot, 0);
+//            nrf_atomic_u32_store(&nBatNot, 0);
+//            nrf_atomic_u32_store(&nNotComp, 0);
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
@@ -670,7 +704,15 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             APP_ERROR_CHECK(err_code);
             break;
 
+        case BLE_GATTS_EVT_HVN_TX_COMPLETE:
+//         nrf_atomic_u32_add(&nNotComp, p_ble_evt->evt.gatts_evt.params.hvn_tx_complete.count);
+//            NRF_LOG_INFO("Notify Complete, Conn %d, Count %d, Bat %d, Gas %d, Completes / 2 %d, Completes %d, Difference %d", p_ble_evt->evt.gatts_evt.conn_handle, p_ble_evt->evt.gatts_evt.params.hvn_tx_complete.count, nBatNot, nGasNot, nNotComp >> 1, nNotComp, nBatNot + nGasNot - nNotComp);
+ //           NRF_LOG_INFO("Notify Complete, Gas %d", nGasNot, nNotComp);
+//           NRF_LOG_INFO("Notify Complete");
+            break;
+
         default:
+            NRF_LOG_INFO("BLE Event %d", p_ble_evt->header.evt_id);
             // No implementation needed.
             break;
     }
@@ -685,6 +727,7 @@ static void ble_stack_init(void)
 {
     ret_code_t err_code;
 
+    // enable the soft device
     err_code = nrf_sdh_enable_request();
     APP_ERROR_CHECK(err_code);
 
@@ -692,6 +735,15 @@ static void ble_stack_init(void)
     // Fetch the start address of the application RAM.
     uint32_t ram_start = 0;
     err_code = nrf_sdh_ble_default_cfg_set(APP_BLE_CONN_CFG_TAG, &ram_start);
+    APP_ERROR_CHECK(err_code);
+
+    // BCA --  augmented the tx queue to 4 (from default 1)
+    // configure the soft device BLE notification queue size
+    ble_cfg_t ble_cfg;
+    memset(&ble_cfg, 0, sizeof ble_cfg);
+    ble_cfg.conn_cfg.conn_cfg_tag                     = 1;
+    ble_cfg.conn_cfg.params.gatts_conn_cfg.hvn_tx_queue_size = 4;
+    err_code = sd_ble_cfg_set(BLE_CONN_CFG_GATTS, &ble_cfg, ram_start);
     APP_ERROR_CHECK(err_code);
 
     // Enable BLE stack.
@@ -848,10 +900,24 @@ static void buttons_leds_init(bool * p_erase_bonds)
     *p_erase_bonds = (startup_event == BSP_EVENT_CLEAR_BONDING_DATA);
 }
 
+// BCA - starting hook function passed to free rtos task for the softdevice, using this to get the task handle
+// then call advertising_start
+static void SoftDeviceHook(void * p_erase_bonds) {
+    // BCA - raise the priority of the soft device task
+    if(soft_device_handle == NULL) {
+      soft_device_handle = xTaskGetCurrentTaskHandle();
+      vTaskPrioritySet(NULL, 3);
+      NRF_LOG_INFO("Soft Device Task %p", soft_device_handle);
+    } else
+      NRF_LOG_INFO("Soft Device Task Handle was non-NULL"); // this should NEVER happen
+
+    advertising_start(p_erase_bonds);
+}
 
 /**@brief Function for starting advertising. */
 static void advertising_start(void * p_erase_bonds)
 {
+
     bool erase_bonds = *(bool*)p_erase_bonds;
 
     if (erase_bonds)
@@ -1091,6 +1157,7 @@ static void aducm355_measure_task (void * pvParameter)
         // if measurement is done, upload the measurement and increase thread interval back up
         if (measurement_done)
         {
+            NRF_LOG_INFO("Done Measurement %d %d", num_measurements, xTaskGetTickCount()); // BCA
             latest_measurement_data.gas_ppm = gas_results[0].gas_ppm;
             latest_measurement_data.gas_sensor_type = gas_results[0].gas_sensor;
 
@@ -1101,6 +1168,7 @@ static void aducm355_measure_task (void * pvParameter)
                 //gas_characteristic_update(ble_gas_srv_gas_sensor_update, (uint8_t*) &gas_results, &p_data_length);
                 gas_characteristic_update(ble_gas_srv_gas_sensor_update, &p_data[0], &p_data_length);
                 current_thread_delay = ADUCM355_MEASURE_INTERVAL_CONNECTED;
+                NRF_LOG_INFO("Measurement Updated %d %d", num_measurements, xTaskGetTickCount()); // BCA
             }
             else // store in EEPROM otherwise
             {
@@ -1338,7 +1406,7 @@ int main(void)
     // Create a FreeRTOS task for the BLE stack.
     // The task will run advertising_start() before entering its loop.
     //pm_peers_delete();
-    nrf_sdh_freertos_init(advertising_start, &erase_bonds);
+    nrf_sdh_freertos_init(SoftDeviceHook, &erase_bonds);
 
     NRF_LOG_INFO("Voltage Band FreeRTOS Scheduler started.");
     // Start FreeRTOS scheduler.

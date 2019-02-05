@@ -6,6 +6,15 @@
 #include "boards.h"
 #include "nrf_log.h"
 
+// rtos -- for the tick count
+#include "FreeRTOS.h"
+#include "task.h"
+
+// BCA - capture the handle to the soft device task
+extern TaskHandle_t soft_device_handle;
+// BCA -- number of consecutive failures of sd_ble_gatts_hvx
+extern nrf_atomic_u32_t nGasNot;
+
 /**@brief Function for handling the @ref BLE_GATTS_EVT_WRITE event from the SoftDevice.
  *
  * @param[in] p_gas_srv     Gas Sensor Service structure.
@@ -162,7 +171,24 @@ static uint32_t update_characteristic(ble_gas_srv_t * p_gas_srv,
         hvx_params.p_len  = &gatts_value.len;
         hvx_params.p_data = gatts_value.p_value;
 
-        return sd_ble_gatts_hvx(conn_handle, &hvx_params);
+        // BCA -- modifications for app hang
+        ret_code_t err = sd_ble_gatts_hvx(conn_handle, &hvx_params);
+        if(NRF_SUCCESS != err) {
+          uint32_t nCnt = nrf_atomic_u32_add(&nGasNot, 1);
+          NRF_LOG_INFO("*** Notify Error %d, Consecutive %d", err, nCnt);
+          if(nCnt > 5 && soft_device_handle) {
+            eTaskState s = eTaskGetState(soft_device_handle);
+            if(s == eBlocked || s == eSuspended) {
+              NRF_LOG_INFO("Poking Soft Device Task");
+              vTaskResume(soft_device_handle); // our soft device might have stopped responding, see if we can wake it
+            } else if(s == eDeleted)
+              NRF_LOG_INFO("*************** SOFT DEVICE TASK HAS DIED");
+          }
+        } else {
+          nrf_atomic_u32_store(&nGasNot, 0);
+        }
+//        return sd_ble_gatts_hvx(conn_handle, &hvx_params);
+        return err;
     }
     else
     {
@@ -359,6 +385,7 @@ void ble_gas_srv_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context)
             break;
 
         default:
+//        NRF_LOG_INFO("Gas Svc Event %d", p_ble_evt->header.evt_id);
             // No implementation needed.
             break;
     }
