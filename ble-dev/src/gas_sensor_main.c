@@ -40,6 +40,8 @@
  * patent rights of the copyright holder.
  *
  * File		gas_sensor_main.c
+ * Date		05 Feb 2019
+ * Version	1.1
  * Date		18 Dec 2018
  * Version	1
  *
@@ -52,13 +54,16 @@
 */
 
 /*
-BCA - working to fix non-responsivenes of system after a given period of time
-sd_ble_gatts_hvx always returns NRF_ERROR_RESOURCES (the queue is full)
+BCA - working to fix non-responsivenes of system after a period of time (typically 5 to 30 minutes)
+rev 1.1 -- 05 Feb 2019
 the soft device appears to stop responding, (breakpoints in the polling task nrf_sdh_freertos.c stop firing)
+sd_ble_gatts_hvx always returns NRF_ERROR_RESOURCES (the queue is full)
 found relevant info here:
 https://devzone.nordicsemi.com/f/nordic-q-a/37204/getting-error-nrf_error_resources-when-using-more-then-one-notification-and-the-connection-crashes
 https://devzone.nordicsemi.com/f/nordic-q-a/36238/connection-failure-when-sending-and-receiving-data-simultaneously-with-softdevice-6-0-and-sdk-15/142055#142055
 added code to ble_gas_srv.c in update_characteristic to poke the soft device task, this appears to be working
+also added code to make the notification buffer 4 deep instead of the default 1
+ultimately I would like to understand why the soft device hangs in the first place, but for now, this is a fix
 */
 
 #include <stdint.h>
@@ -148,16 +153,6 @@ added code to ble_gas_srv.c in update_characteristic to poke the soft device tas
 #define SEC_PARAM_MAX_KEY_SIZE              16                                      /**< Maximum encryption key size. */
 #define DEAD_BEEF                           0xDEADBEEF                              /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 #define OSTIMER_WAIT_FOR_QUEUE              2                                       /**< Number of ticks to wait for the timer queue to be ready */
-
-//BCA
-//#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.1 seconds). */
-//#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(200, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (0.2 second). */
-//#define SLAVE_LATENCY                   0                                       /**< Slave latency. */
-//#define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(4000, UNIT_10_MS)         /**< Connection supervisory timeout (4 seconds). */
-//#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.1 seconds). */
-//#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(2000, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (1. second). */
-//#define SLAVE_LATENCY                   0                                       /**< Slave latency. */
-//#define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(10000, UNIT_10_MS)         /**< Connection supervisory timeout (10 seconds). */
 
 BLE_GAS_SRV_DEF(m_gas);                                             /**< Gas Sensor service instance. */
 BLE_BAS_DEF(m_bas);                                                 /**< Battery service instance. */
@@ -705,10 +700,6 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             break;
 
         case BLE_GATTS_EVT_HVN_TX_COMPLETE:
-//         nrf_atomic_u32_add(&nNotComp, p_ble_evt->evt.gatts_evt.params.hvn_tx_complete.count);
-//            NRF_LOG_INFO("Notify Complete, Conn %d, Count %d, Bat %d, Gas %d, Completes / 2 %d, Completes %d, Difference %d", p_ble_evt->evt.gatts_evt.conn_handle, p_ble_evt->evt.gatts_evt.params.hvn_tx_complete.count, nBatNot, nGasNot, nNotComp >> 1, nNotComp, nBatNot + nGasNot - nNotComp);
- //           NRF_LOG_INFO("Notify Complete, Gas %d", nGasNot, nNotComp);
-//           NRF_LOG_INFO("Notify Complete");
             break;
 
         default:
@@ -901,11 +892,11 @@ static void buttons_leds_init(bool * p_erase_bonds)
 }
 
 // BCA - starting hook function passed to free rtos task for the softdevice, using this to get the task handle
-// then call advertising_start
+// then call advertising_start (per v1)
 static void SoftDeviceHook(void * p_erase_bonds) {
-    // BCA - raise the priority of the soft device task
     if(soft_device_handle == NULL) {
       soft_device_handle = xTaskGetCurrentTaskHandle();
+      // BCA - raise the priority of the soft device task, this probably isn't needed, but it didn't hurt
       vTaskPrioritySet(NULL, 3);
       NRF_LOG_INFO("Soft Device Task %p", soft_device_handle);
     } else
@@ -1157,7 +1148,6 @@ static void aducm355_measure_task (void * pvParameter)
         // if measurement is done, upload the measurement and increase thread interval back up
         if (measurement_done)
         {
-            NRF_LOG_INFO("Done Measurement %d %d", num_measurements, xTaskGetTickCount()); // BCA
             latest_measurement_data.gas_ppm = gas_results[0].gas_ppm;
             latest_measurement_data.gas_sensor_type = gas_results[0].gas_sensor;
 
@@ -1172,6 +1162,8 @@ static void aducm355_measure_task (void * pvParameter)
             }
             else // store in EEPROM otherwise
             {
+                NRF_LOG_INFO("Done Measurement %d %d", num_measurements, xTaskGetTickCount()); // BCA
+
                 // using i2c, make sure BME280 thread doesn't contest
 #ifndef BOARD_PCA10056 
                 if(xSemaphoreTake(i2c_semaphore,ADUCM355_MEASURE_INTERVAL_CONNECTED))
@@ -1408,7 +1400,7 @@ int main(void)
     //pm_peers_delete();
     nrf_sdh_freertos_init(SoftDeviceHook, &erase_bonds);
 
-    NRF_LOG_INFO("Voltage Band FreeRTOS Scheduler started.");
+    NRF_LOG_INFO("Gas Sense FreeRTOS Scheduler starting...");
     // Start FreeRTOS scheduler.
     vTaskStartScheduler();
 

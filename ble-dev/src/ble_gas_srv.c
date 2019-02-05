@@ -172,23 +172,24 @@ static uint32_t update_characteristic(ble_gas_srv_t * p_gas_srv,
         hvx_params.p_data = gatts_value.p_value;
 
         // BCA -- modifications for app hang
-        ret_code_t err = sd_ble_gatts_hvx(conn_handle, &hvx_params);
-        if(NRF_SUCCESS != err) {
+        err_code = sd_ble_gatts_hvx(conn_handle, &hvx_params);
+        if(NRF_SUCCESS != err_code) {
           uint32_t nCnt = nrf_atomic_u32_add(&nGasNot, 1);
-          NRF_LOG_INFO("*** Notify Error %d, Consecutive %d", err, nCnt);
-          if(nCnt > 5 && soft_device_handle) {
+          NRF_LOG_INFO("*** Notify Error %d, Consecutive %d", err_code, nCnt);
+          // if notifications have failed 5 or more times and we have the handle of the soft device thread
+          if(nCnt > 4 && soft_device_handle) {
+            // check its state
             eTaskState s = eTaskGetState(soft_device_handle);
             if(s == eBlocked || s == eSuspended) {
               NRF_LOG_INFO("Poking Soft Device Task");
               vTaskResume(soft_device_handle); // our soft device might have stopped responding, see if we can wake it
             } else if(s == eDeleted)
-              NRF_LOG_INFO("*************** SOFT DEVICE TASK HAS DIED");
+              NRF_LOG_ERROR("*************** SOFT DEVICE TASK HAS DIED");
           }
-        } else {
+        } else
+          // we were successful, reset our counter
           nrf_atomic_u32_store(&nGasNot, 0);
-        }
-//        return sd_ble_gatts_hvx(conn_handle, &hvx_params);
-        return err;
+//      return sd_ble_gatts_hvx(conn_handle, &hvx_params);
     }
     else
     {
