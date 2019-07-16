@@ -1,6 +1,11 @@
 #include <string.h>
 #include "aducm355_cmd_protocol.h"
 
+// logging
+#include "nrf_log.h"
+#include "nrf_log_ctrl.h"
+#include "nrf_log_default_backends.h"
+
 static data_payload data_buffer = {0};
 static measure_payload measure_buffer = {0};
 static ack_payload ack_buffer = {0};
@@ -55,8 +60,10 @@ uint8_t look_for_packet(uint8_t * uart_rx_buffer, uint8_t length, uart_packet * 
             if(check_crc16(&search_buffer[i]))
             {
                memcpy(pkt, &search_buffer[i], PKT_LENGTH);
+
+			   if(i) NRF_LOG_INFO("Packet found at %d", i);
                return 1;
-            }
+            } else NRF_LOG_INFO("Packet failed crc %d", i);
          }
          else
          {

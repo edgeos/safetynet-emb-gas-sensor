@@ -40,7 +40,7 @@
  * patent rights of the copyright holder.
  *
  * File		gas_sensor_main.c
- * Date		05 Feb 2019
+ * Date		06 Feb 2019
  * Version	1.1
  * Date		18 Dec 2018
  * Version	1
@@ -54,16 +54,19 @@
 */
 
 /*
-BCA - working to fix non-responsivenes of system after a period of time (typically 5 to 30 minutes)
+BCA - working to fix non-responsivenes of the system after a period of time (typically 5 to 30 minutes)
 rev 1.1 -- 05 Feb 2019
 the soft device appears to stop responding, (breakpoints in the polling task nrf_sdh_freertos.c stop firing)
 sd_ble_gatts_hvx always returns NRF_ERROR_RESOURCES (the queue is full)
 found relevant info here:
 https://devzone.nordicsemi.com/f/nordic-q-a/37204/getting-error-nrf_error_resources-when-using-more-then-one-notification-and-the-connection-crashes
 https://devzone.nordicsemi.com/f/nordic-q-a/36238/connection-failure-when-sending-and-receiving-data-simultaneously-with-softdevice-6-0-and-sdk-15/142055#142055
-added code to ble_gas_srv.c in update_characteristic to poke the soft device task, this appears to be working
+added code to ble_gas_srv.c in update_characteristic to poke the soft device task if the notification fails 5 or more consecutive times, this appears to be working
 also added code to make the notification buffer 4 deep instead of the default 1
 ultimately I would like to understand why the soft device hangs in the first place, but for now, this is a fix
+rev 1.1 -- 06 Feb 2019
+added a Soft Device Poke to the gas measure task that executes every 1.8 seconds, this stopped the gas service from failing
+this should keep the soft device responsive even when not connected or notifying
 */
 
 #include <stdint.h>
@@ -105,6 +108,8 @@ ultimately I would like to understand why the soft device hangs in the first pla
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
+#include "ble_hrs.h"
+
 // internal peripheral contollers
 #include "i2c_device_controller.h"
 
@@ -114,6 +119,8 @@ ultimately I would like to understand why the soft device hangs in the first pla
 // external devices (eeprom and temp humidity sensor)
 #include "m24m02.h"
 #include "bme280.h"
+
+#include "os.h"
 
 // nv flash
 #include "nvflash_controller.h"
@@ -159,6 +166,7 @@ BLE_BAS_DEF(m_bas);                                                 /**< Battery
 NRF_BLE_GATT_DEF(m_gatt);                                           /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                             /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                 /**< Advertising module instance. */
+BLE_HRS_DEF(m_hr);
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;            /**< Handle of the current connection. */
 static sensorsim_cfg_t   m_battery_sim_cfg;                         /**< Battery Level sensor simulator configuration. */
@@ -184,6 +192,8 @@ static uint32_t new_utc_time_ref = 0;
 nrf_atomic_u32_t nGasNot = 0;
 // BCA - capture the handle to the soft device task
 TaskHandle_t soft_device_handle = NULL;
+// our init HR function in i2c_device_controller
+void InitHR(ble_hrs_t* pHRS, xSemaphoreHandle);
 
 static ble_uuid_t m_adv_uuids[] =                                   /**< Universally unique service identifiers. */
 {
@@ -197,10 +207,13 @@ static TaskHandle_t bme280_measure_task_handle;                     /**< Definit
 static TaskHandle_t aducm355_measure_task_handle;                   /**< Definition of ADuCM355 measurement task. */
 static TaskHandle_t aducm355_command_task_handle;                   /**< Definition of ADuCM355 command handler task. */
 static TaskHandle_t battery_task_handle;                            /**< Definition of battery measure handler task. */
+static TaskHandle_t hr_task_handle;                            /**< Definition of battery measure handler task. */
 xSemaphoreHandle i2c_semaphore = 0;
 xSemaphoreHandle use_aducm355_semaphore = 0;
 
-static m24m02_storage_block_t latest_measurement_data = {0};
+//static m24m02_storage_block_t latest_measurement_data = {0};
+m24m02_storage_block_t latest_measurement_data = {0};
+
 static bool m_clear_eeprom = false;
 static bool m_send_eeprom_data = false;
 
@@ -232,6 +245,23 @@ static void advertising_start(void * p_erase_bonds);
 void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 {
     app_error_handler(DEAD_BEEF, line_num, p_file_name);
+}
+
+// BCA - soft device poke 
+// return true if the task was suspended or blocked and we poked it
+bool PokeSoftDevice(bool bLog) {
+    // if we have the soft device handle (which we should)
+    if(soft_device_handle) {
+        // check its state
+        eTaskState s = eTaskGetState(soft_device_handle);
+        if(s == eBlocked || s == eSuspended) {
+            if(bLog) NRF_LOG_INFO("Poking Soft Device Task");
+            vTaskResume(soft_device_handle); // our soft device might have stopped responding, see if we can wake it
+            return true;
+        } else if(s == eDeleted)
+            NRF_LOG_ERROR("*************** SOFT DEVICE TASK HAS DIED");
+    }
+    return false;
 }
 
 
@@ -287,6 +317,25 @@ static void battery_level_update(void)
 }
 
 
+static void hr_update() {
+}
+
+
+static void hr_init() {
+}
+
+/**@brief Thread for updating the heart rate
+ *
+ * @details Update the heart value
+ *
+ * @param[in] pvParameter
+ *                   
+ */
+static void hr_thread(void * pvParameter) {
+    //UNUSED_PARAMETER(pvParameter);
+    InitHR(&m_hr, i2c_semaphore);
+}
+
 /**@brief Function for handling the Battery measurement timer time-out.
  *
  * @details This function will be called each time the battery level measurement timer expires.
@@ -301,13 +350,19 @@ static void battery_level_meas_timeout_handler(void * pvParameter) // (TimerHand
     while(1)
     {
         // this function has been converted to a Task instead of a Timer due to peripheral contention
+        NRF_LOG_INFO("battery %p taking aducm", xTaskGetCurrentTaskHandle());
         if(xSemaphoreTake(use_aducm355_semaphore,10))
         {
+//            NRF_LOG_INFO("battery %p aducm taken", xTaskGetCurrentTaskHandle());
+//            NRF_LOG_INFO("battery %p taking i2c", xTaskGetCurrentTaskHandle());
             if(xSemaphoreTake(i2c_semaphore,10))
             { 
+ //               NRF_LOG_INFO("battery %p i2c taken", xTaskGetCurrentTaskHandle());
                 battery_level_update();
+ //               NRF_LOG_INFO("battery %p i2c given", xTaskGetCurrentTaskHandle());
                 xSemaphoreGive(i2c_semaphore);
             }
+            NRF_LOG_INFO("battery %p aducm given", xTaskGetCurrentTaskHandle());
             xSemaphoreGive(use_aducm355_semaphore);
         }
         vTaskDelay(1000);
@@ -509,6 +564,23 @@ static void services_init(void)
 
     err_code = ble_dis_init(&dis_init);
     APP_ERROR_CHECK(err_code);
+
+    // Initialize Heart Rate Service.
+    uint8_t body_sensor_location = BLE_HRS_BODY_SENSOR_LOCATION_FINGER;
+    ble_hrs_init_t     hrs_init;
+
+    memset(&hrs_init, 0, sizeof(hrs_init));
+
+    hrs_init.evt_handler                 = NULL;
+    hrs_init.is_sensor_contact_supported = true;
+    hrs_init.p_body_sensor_location      = &body_sensor_location;
+
+    // Here the sec level for the Heart Rate Service can be changed/increased.
+    hrs_init.hrm_cccd_wr_sec = SEC_OPEN;
+    hrs_init.bsl_rd_sec      = SEC_OPEN;
+
+    err_code = ble_hrs_init(&m_hr, &hrs_init);
+    APP_ERROR_CHECK(err_code);
 }
 
 
@@ -632,7 +704,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
             break;
 
         case BLE_ADV_EVT_IDLE:
-            sleep_mode_enter();
+//            sleep_mode_enter();
             break;
 
         default:
@@ -736,6 +808,18 @@ static void ble_stack_init(void)
     ble_cfg.conn_cfg.params.gatts_conn_cfg.hvn_tx_queue_size = 4;
     err_code = sd_ble_cfg_set(BLE_CONN_CFG_GATTS, &ble_cfg, ram_start);
     APP_ERROR_CHECK(err_code);
+    // increase the table size, needed for the heart rate service
+    memset(&ble_cfg, 0, sizeof(ble_cfg));
+    ble_cfg.gatts_cfg.attr_tab_size.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT + 256;
+    err_code = sd_ble_cfg_set(BLE_GATTS_CFG_ATTR_TAB_SIZE, &ble_cfg, ram_start);
+
+#if 0
+    // Configure the number of custom UUIDS.
+    memset(&ble_cfg, 0, sizeof(ble_cfg));
+    ble_cfg.common_cfg.vs_uuid_cfg.vs_uuid_count = 2;
+    err_code = sd_ble_cfg_set(BLE_COMMON_CFG_VS_UUID, &ble_cfg, ram_start);
+    APP_ERROR_CHECK(err_code);
+#endif
 
     // Enable BLE stack.
     err_code = nrf_sdh_ble_enable(&ram_start);
@@ -950,8 +1034,8 @@ static void logger_thread(void * arg)
  */
 static void gas_characteristic_update(ble_gas_char_update_t char_update, uint8_t * p_data, uint16_t * p_length)
 {
-    ret_code_t err_code;
-
+    ret_code_t err_code = NRF_SUCCESS;
+ //#if 0  
     err_code = char_update(&m_gas, p_data, p_length, m_conn_handle); 
     if ((err_code != NRF_SUCCESS) &&
         (err_code != NRF_ERROR_INVALID_STATE) &&
@@ -962,6 +1046,7 @@ static void gas_characteristic_update(ble_gas_char_update_t char_update, uint8_t
     {
         APP_ERROR_HANDLER(err_code);
     }
+ //#endif
 }
 
 
@@ -1001,17 +1086,21 @@ static void bme280_measure_task (void * pvParameter)
         memcpy(&latest_measurement_data.humidity, &p_data[4], sizeof(latest_measurement_data.humidity));
         memcpy(&latest_measurement_data.pressure, &p_data[8], sizeof(latest_measurement_data.pressure));
 #else
+        NRF_LOG_INFO("bme280 %p taking i2c", xTaskGetCurrentTaskHandle());
         if(xSemaphoreTake(i2c_semaphore,BME280_MEASURE_INTERVAL))
         {
+//            NRF_LOG_INFO("bme280 %p taken i2c", xTaskGetCurrentTaskHandle());
             get_sensor_data(BME280, &p_data[0], &p_data_length);
             memcpy(&latest_measurement_data.temperature, &p_data[0], sizeof(latest_measurement_data.temperature));
             memcpy(&latest_measurement_data.humidity, &p_data[4], sizeof(latest_measurement_data.humidity));
             memcpy(&latest_measurement_data.pressure, &p_data[8], sizeof(latest_measurement_data.pressure));
+            NRF_LOG_INFO("bme280 %p giving i2c", xTaskGetCurrentTaskHandle());
             xSemaphoreGive(i2c_semaphore);
         }
 #endif
         if(m_ble_connected_bool)
         {
+            NRF_LOG_INFO("bme280 %p publish", xTaskGetCurrentTaskHandle());
             gas_characteristic_update(ble_gas_srv_temp_humid_pressure_update, &p_data[0], &p_data_length);
         }
         vTaskDelay(BME280_MEASURE_INTERVAL);
@@ -1060,7 +1149,7 @@ static void aducm355_measure_task (void * pvParameter)
     static gas_sensor_results_t gas_results[16] = {0};
     static gas_sensing_state_t gas_sensing_state;
     static uint32_t ms_count = 0;
-    static bool aducm355_recover_iface = false;
+    static bool aducm355_recover_iface = true;
     static uint32_t num_measurements = 0;
     static uint32_t current_thread_delay = ADUCM355_MEASURE_INTERVAL_DISCONNECTED;
 
@@ -1072,14 +1161,17 @@ static void aducm355_measure_task (void * pvParameter)
     while(1)
     {
         // try to take it immediately
+        NRF_LOG_INFO("adu %p taking aducm", xTaskGetCurrentTaskHandle());
         if(!xSemaphoreTake(use_aducm355_semaphore,1))
         {
             continue;
         }
+ //       NRF_LOG_INFO("adu %p aducm taken", xTaskGetCurrentTaskHandle());
 
         if (aducm355_recover_iface)
         {
 #ifdef BOARD_MATCHBOX_V1
+            NRF_LOG_INFO("adu recover");
             // error LED on
             nrf_drv_gpiote_out_set(LED_2);
 #else
@@ -1090,6 +1182,7 @@ static void aducm355_measure_task (void * pvParameter)
 
             if(!err_code)
             {
+                NRF_LOG_INFO("adu success recover");
                 // error LED off
                 nrf_drv_gpiote_out_toggle(LED_2);
                 aducm355_recover_iface = false;
@@ -1098,8 +1191,10 @@ static void aducm355_measure_task (void * pvParameter)
             }
             else
             {
+              NRF_LOG_INFO("adu failed recover %d", err_code);
                 current_thread_delay = ADUCM355_MEASURE_CHECK_INTERVAL;
             }
+            NRF_LOG_INFO("adu %p aducm given", xTaskGetCurrentTaskHandle());
             xSemaphoreGive(use_aducm355_semaphore);
             vTaskDelay(current_thread_delay);
             continue;
@@ -1166,10 +1261,13 @@ static void aducm355_measure_task (void * pvParameter)
 
                 // using i2c, make sure BME280 thread doesn't contest
 #ifndef BOARD_PCA10056 
+ //               NRF_LOG_INFO("adu %p taking i2c", xTaskGetCurrentTaskHandle());
                 if(xSemaphoreTake(i2c_semaphore,ADUCM355_MEASURE_INTERVAL_CONNECTED))
                 {
 
+ //                   NRF_LOG_INFO("adu %p i2c taken", xTaskGetCurrentTaskHandle());
                     //store_sensor_data_eeprom(&latest_measurement_data, &ms_count);
+ //                   NRF_LOG_INFO("adu %p i2c given", xTaskGetCurrentTaskHandle());
                     xSemaphoreGive(i2c_semaphore);
                 }
 #endif
@@ -1183,7 +1281,12 @@ static void aducm355_measure_task (void * pvParameter)
             // reset counter
             ms_count = 0;
         }
+        NRF_LOG_INFO("adu %p aducm given", xTaskGetCurrentTaskHandle());
         xSemaphoreGive(use_aducm355_semaphore);
+        NRF_LOG_INFO("adu %p aducm post given", xTaskGetCurrentTaskHandle());
+        // BCA
+        PokeSoftDevice(true);
+        NRF_LOG_INFO("adu %p aducm post poke", xTaskGetCurrentTaskHandle());
         vTaskDelay(current_thread_delay);
     }
 }
@@ -1200,8 +1303,10 @@ static void aducm355_command_task (void * pvParameter)
     while(1)
     {
         // try to take it immediately
+  //      NRF_LOG_INFO("aduc %p taking aducm", xTaskGetCurrentTaskHandle());
         if(xSemaphoreTake(use_aducm355_semaphore,5))
         {
+  //          NRF_LOG_INFO("aduc %p aducm taken", xTaskGetCurrentTaskHandle());
             if(read_eeprom_cmd)
             {   
                 get_sensor_data_eeprom(&restart, &finished, &record);
@@ -1227,6 +1332,7 @@ static void aducm355_command_task (void * pvParameter)
             if(update_aducm355_config)
             {
             }
+   //         NRF_LOG_INFO("aduc %p giving aducm", xTaskGetCurrentTaskHandle());
             xSemaphoreGive(use_aducm355_semaphore);
         }
         vTaskDelay(ADUCM355_MEASURE_CHECK_INTERVAL);
@@ -1264,6 +1370,13 @@ static void external_sensor_init(void)
         NRF_LOG_ERROR("BME280 task not created.");
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
+
+    xReturned = xTaskCreate(hr_thread, "HEARTRATE", configMINIMAL_STACK_SIZE + 200, NULL, 1, &hr_task_handle);
+    if (xReturned != pdPASS)
+    {
+        NRF_LOG_ERROR("Heart Rate task not created.");
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
 }
 
 
@@ -1292,7 +1405,7 @@ static void gas_sensor_init(void)
         nrf_drv_gpiote_out_toggle(LED_2);
         nrf_delay_ms(500);
     }
-
+#if 0
     if (!simulated_gas_sensor_data)
     {
         // check for ADI chip, if not here then stay here.
@@ -1301,6 +1414,7 @@ static void gas_sensor_init(void)
             nrf_delay_ms(500);
         }
     }
+#endif
     nrf_drv_gpiote_out_toggle(LED_2);
 
     xReturned = xTaskCreate(aducm355_measure_task, "ADUCM355_Meas", configMINIMAL_STACK_SIZE + 200, NULL, 1, &aducm355_measure_task_handle);

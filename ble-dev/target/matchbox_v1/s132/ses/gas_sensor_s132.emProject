@@ -127,6 +127,12 @@
       <file file_name="$(GIT_DIR)/src/saadc_controller.c">
         <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
+      <configuration
+        Name="Common"
+        gcc_cplusplus_language_standard="gnu++11" />
+      <file file_name="../../../../src/i2c.cpp" />
+      <file file_name="../../../../src/i2c.h" />
+      <file file_name="../../../../src/os.h" />
     </folder>
     <folder Name="nRF_Segger_RTT">
       <file file_name="$(NRF_SDK_DIR)/external/segger_rtt/SEGGER_RTT.c" />
@@ -164,6 +170,7 @@
       <file file_name="$(GIT_DIR)/src/ble_gas_srv.c">
         <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
+      <file file_name="$(NRF_SDK_DIR)/components/ble/ble_services/ble_hrs/ble_hrs.c" />
     </folder>
     <folder Name="nRF_SoftDevice">
       <file file_name="$(NRF_SDK_DIR)/components/softdevice/common/nrf_sdh.c" />
@@ -174,6 +181,7 @@
     <folder Name="Sensor Drivers">
       <file file_name="$(GIT_DIR)/src/bme280/bme280.c" />
       <file file_name="$(GIT_DIR)/src/m24m02/m24m02.c" />
+      <file file_name="$(GIT_DIR)/src/max30102/max30102.cpp" />
     </folder>
     <folder Name="UART Comms">
       <file file_name="$(GIT_DIR)/src/aducm355/aducm355_controller.c">

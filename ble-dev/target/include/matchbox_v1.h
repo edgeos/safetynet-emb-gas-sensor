@@ -77,6 +77,9 @@ extern "C" {
 #define ADUCM355_RX_PIN            NRF_GPIO_PIN_MAP(0,6) 
 #define ADUCM355_TX_PIN            NRF_GPIO_PIN_MAP(0,7)        
 
+#define UART_RX_PIN            NRF_GPIO_PIN_MAP(0,19) 
+#define UART_TX_PIN            NRF_GPIO_PIN_MAP(0,17)        
+
 // Heaters for Gas Sensors
 #define ADUCM355_HEATER1           NRF_GPIO_PIN_MAP(0,3)
 #define ADUCM355_HEATER2           NRF_GPIO_PIN_MAP(0,4) 

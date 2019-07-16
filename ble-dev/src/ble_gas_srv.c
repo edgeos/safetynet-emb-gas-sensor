@@ -14,6 +14,7 @@
 extern TaskHandle_t soft_device_handle;
 // BCA -- number of consecutive failures of sd_ble_gatts_hvx
 extern nrf_atomic_u32_t nGasNot;
+bool PokeSoftDevice(bool);
 
 /**@brief Function for handling the @ref BLE_GATTS_EVT_WRITE event from the SoftDevice.
  *
@@ -174,21 +175,13 @@ static uint32_t update_characteristic(ble_gas_srv_t * p_gas_srv,
         // BCA -- modifications for app hang
         err_code = sd_ble_gatts_hvx(conn_handle, &hvx_params);
         if(NRF_SUCCESS != err_code) {
-          uint32_t nCnt = nrf_atomic_u32_add(&nGasNot, 1);
-          NRF_LOG_INFO("*** Notify Error %d, Consecutive %d", err_code, nCnt);
-          // if notifications have failed 5 or more times and we have the handle of the soft device thread
-          if(nCnt > 4 && soft_device_handle) {
-            // check its state
-            eTaskState s = eTaskGetState(soft_device_handle);
-            if(s == eBlocked || s == eSuspended) {
-              NRF_LOG_INFO("Poking Soft Device Task");
-              vTaskResume(soft_device_handle); // our soft device might have stopped responding, see if we can wake it
-            } else if(s == eDeleted)
-              NRF_LOG_ERROR("*************** SOFT DEVICE TASK HAS DIED");
-          }
+            uint32_t nCnt = nrf_atomic_u32_add(&nGasNot, 1);
+            NRF_LOG_INFO("*** Notify Error %d, Consecutive %d", err_code, nCnt);
+            // if notifications have failed 5 or more times and we have the handle of the soft device thread
+            if(nCnt > 4 && soft_device_handle) PokeSoftDevice(true);
         } else
-          // we were successful, reset our counter
-          nrf_atomic_u32_store(&nGasNot, 0);
+            // we were successful, reset our counter
+            nrf_atomic_u32_store(&nGasNot, 0);
 //      return sd_ble_gatts_hvx(conn_handle, &hvx_params);
     }
     else

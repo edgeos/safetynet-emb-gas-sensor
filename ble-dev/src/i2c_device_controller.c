@@ -101,27 +101,30 @@ static void twi_init(void)
     twi_enabled = true;
 }
 
-static uint32_t twi_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint16_t len)
+uint32_t twi_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint16_t len)
 {
     ret_code_t err_code;
 
     /* Prepare for the read with a register write */
     uint8_t reg_read[2] = {reg_addr, 0};
     m_xfer_done1 = false; 
-    err_code = nrf_drv_twi_tx(&m_twi, dev_id, reg_read, 1, true);
+
+while(NRF_ERROR_BUSY == (
+    err_code = nrf_drv_twi_tx(&m_twi, dev_id, reg_read, 1, true) ));
     APP_ERROR_CHECK(err_code);
     twi_wait();
 
     /* Now read the register */
     m_xfer_done1 = false; 
-    err_code = nrf_drv_twi_rx(&m_twi, dev_id, data, len);
+    while(NRF_ERROR_BUSY == (
+    err_code = nrf_drv_twi_rx(&m_twi, dev_id, data, len)));
     APP_ERROR_CHECK(err_code);
     twi_wait();
 
     return err_code;
 }
 
-static uint32_t twi_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint16_t len)
+uint32_t twi_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint16_t len)
 {
     ret_code_t err_code;
     
@@ -132,7 +135,7 @@ static uint32_t twi_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint1
 
     /* Transfer tx buffer */
     m_xfer_done1 = false;
-    err_code = nrf_drv_twi_tx(&m_twi, dev_id, reg_write, 1+len, false);
+while(NRF_ERROR_BUSY == (    err_code = nrf_drv_twi_tx(&m_twi, dev_id, reg_write, 1+len, false)));
     APP_ERROR_CHECK(err_code);
     twi_wait();
 
@@ -425,3 +428,13 @@ int8_t clear_sensor_data_eeprom(uint8_t * p_data, uint16_t * p_data_length)
     m24m02_info.current_write_address = M24M02_FIRST_DATA_ADDRESS;
     m24m02_eeprom(M24MO2_WRITE, M24M02_CURRENT_WRITE_ADDRESS, sizeof(uint32_t), (uint8_t*) &m24m02_info.current_write_address);
 }
+
+#include "ble_hrs.h"
+#include "FreeRTOS.h"
+#include "semphr.h"
+//struct ble_hrs_t;
+//void DoHR(const nrf_drv_twi_t* pTWI, ble_hrs_t* pHRS);
+void InitHR(ble_hrs_t* pHRS, xSemaphoreHandle hMutex) {
+  DoHR(&m_twi, hMutex, pHRS);
+}
+
