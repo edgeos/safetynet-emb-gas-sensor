@@ -10,8 +10,14 @@
 #define PRIMETIME_SEC       1
 #endif
 
+
+#define NUM_SENSOR_READINGS	40
+//#define NUM_SENSOR_READINGS	16
+
+#if 0
 #define NUM_GAS_SENSORS      4
 #define NUM_FREQS_PER_SENSOR 4
+#endif
 
 typedef struct
 {
@@ -29,5 +35,6 @@ typedef struct
    bool mux_s1;
 } SensorSettings;
    
-extern SensorSettings MeasureSettings[NUM_GAS_SENSORS*NUM_FREQS_PER_SENSOR];
+//extern SensorSettings MeasureSettings[NUM_GAS_SENSORS*NUM_FREQS_PER_SENSOR];
+extern SensorSettings MeasureSettings[NUM_SENSOR_READINGS];
 #endif

@@ -2,9 +2,11 @@
 #include "aducm355_cmd_protocol.h"
 
 // logging
+#ifdef NRF52
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
+#endif
 
 static data_payload data_buffer = {0};
 static measure_payload measure_buffer = {0};
@@ -29,6 +31,8 @@ static void build_empty_payload_pkt(uart_packet * pkt, uint8_t cmd_byte)
    pkt->crc = crc16((uint8_t*)pkt, (uint8_t)(PKT_LENGTH-PKT_END_LENGTH));
 }
 
+volatile uint32_t nLook = 0;
+
 /**@brief Try to parse a packet from a RX buffer
  *
  */
@@ -42,8 +46,10 @@ uint8_t look_for_packet(uint8_t * uart_rx_buffer, uint8_t length, uart_packet * 
      return 0;
    }
    
+  nLook = 1;
    // copy to working buffer so no interrupt conflicts
    memcpy(&search_buffer[0], uart_rx_buffer, length);
+   ++nLook;
    uint8_t pkt_end_ind = 0;
    for (uint8_t i = 0; i < length; i++)
    {
@@ -60,14 +66,23 @@ uint8_t look_for_packet(uint8_t * uart_rx_buffer, uint8_t length, uart_packet * 
             if(check_crc16(&search_buffer[i]))
             {
                memcpy(pkt, &search_buffer[i], PKT_LENGTH);
-
+#ifdef NRF52
 			   if(i) NRF_LOG_INFO("Packet found at %d", i);
+#endif
+                  nLook = 0;
+
                return 1;
-            } else NRF_LOG_INFO("Packet failed crc %d", i);
+            }
+#ifdef NRF52
+            else NRF_LOG_INFO("Packet failed crc %d", i);
+#endif
+                  nLook |= 0x100;
          }
          else
          {
-            return 0;
+                            nLook |= 0x400;
+
+//            return 0;
          }
       }
    }
@@ -241,3 +256,4 @@ uint16_t crc16(uint8_t* data_p, uint8_t length)
     }
     return crc & 0xFFFF;
 }
+

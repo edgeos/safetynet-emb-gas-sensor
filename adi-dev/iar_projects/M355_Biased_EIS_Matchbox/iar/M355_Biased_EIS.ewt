@@ -2422,6 +2422,21 @@
         </file>
     </group>
     <group>
+        <name>gas_common</name>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\..\common\CircularBuffer.cpp</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\..\common\CircularBuffer.h</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\..\common\Packet.cpp</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\..\..\common\Packet.h</name>
+        </file>
+    </group>
+    <group>
         <name>startup</name>
         <file>
             <name>$PROJ_DIR$\..\..\..\common\IAR\startup.c</name>

@@ -9,6 +9,9 @@
 #include "nrf_sdh_ble.h"
 #include "ble_link_ctx_manager.h"
 
+#include "aducm355_controller.h"
+#include "aducm355_gas_constants.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -42,8 +45,9 @@ extern "C" {
 #define CONFIG_DATA_GAS4_CHAR_UUID                   0x0008
 
 #define BLE_GAS_NORMAL_DATA_LEN                      20
-#define BLE_GAS_MAX_DATA_LEN                         240
-
+//#define BLE_GAS_MAX_DATA_LEN                         240
+#define BLE_GAS_MAX_DATA_LEN                         300
+//#define BLE_GAS_MAX_DATA_LEN (sizeof(gas_sensor_results_t)*NUM_SENSOR_READINGS + 1)
 /**@brief Gas Sensor event type. */
 typedef enum
 {

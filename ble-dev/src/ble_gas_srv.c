@@ -360,6 +360,7 @@ uint32_t ble_gas_srv_init(ble_gas_srv_t * p_gas_srv, ble_gas_srv_init_t const * 
     {
         return err_code;
     }
+	return err_code;
 }
 
 

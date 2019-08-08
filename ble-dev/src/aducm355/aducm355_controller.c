@@ -38,6 +38,13 @@
 #include "../i2c_device_controller.h"
 extern m24m02_storage_block_t latest_measurement_data;
 
+#include "../../../common/Packet.h"
+
+#define MS_TO_TICKS(xMS) pdMS_TO_TICKS(xMS)
+#define US_TO_TICKS(xUS) (((xUS) * configTICK_RATE_HZ) / 1000000)
+#define TICKS_TO_US(xTicks) (((xTicks) * 1000000) / configTICK_RATE_HZ)
+#define TICKS_TO_MS(xTicks) (((xTicks) * 1000) / configTICK_RATE_HZ)
+
 // In case not defined in board file
 #ifndef ADUCM355_RX_PIN
 #define ADUCM355_RX_PIN            24
@@ -52,13 +59,15 @@ extern m24m02_storage_block_t latest_measurement_data;
 #define SERIAL_BUFF_TX_SIZE 1
 #define SERIAL_BUFF_RX_SIZE 1
 #define MAX_UINT32          4294967295
-#define UART_TIMEOUT_US     10000
+#define UART_TIMEOUT_US     20000
 #define RTC_FREQUENCY       32 // must be a factor of 32768
-#define TIMEOUT_SEC         10
+//#define TIMEOUT_SEC         10
+#define TIMEOUT_SEC         3
 
 const  nrf_drv_rtc_t           rtc = NRF_DRV_RTC_INSTANCE(2); // Declaring an instance of nrf_drv_rtc for RTC2. */
 
 static void serial_rx_cb(struct nrf_serial_s const *p_serial, nrf_serial_event_t event);
+void new_serial_rx_cb(struct nrf_serial_s const *p_serial, nrf_serial_event_t event);
 
 // Uart library defines
 NRF_SERIAL_DRV_UART_CONFIG_DEF(m_uart0_drv_config,
@@ -70,7 +79,7 @@ NRF_SERIAL_DRV_UART_CONFIG_DEF(m_uart0_drv_config,
 NRF_SERIAL_QUEUES_DEF(serial_queues, SERIAL_FIFO_TX_SIZE, SERIAL_FIFO_RX_SIZE);
 NRF_SERIAL_BUFFERS_DEF(serial_buffs, SERIAL_BUFF_TX_SIZE, SERIAL_BUFF_RX_SIZE);
 NRF_SERIAL_CONFIG_DEF(serial_config, NRF_SERIAL_MODE_IRQ,
-                      &serial_queues, &serial_buffs, serial_rx_cb, NULL);                    
+                      &serial_queues, &serial_buffs, new_serial_rx_cb, NULL);                    
 NRF_SERIAL_UART_DEF(serial_uart, 0);
 
 static uint32_t priming_counter_ticks = 0;
@@ -209,7 +218,6 @@ static void unlock_mutex(bool *mutex)
     *mutex = false;
 }
 
-#if 0
 static void serial_rx_cb(struct nrf_serial_s const *p_serial, nrf_serial_event_t event) 
 {
     if (event == NRF_SERIAL_EVENT_RX_DATA) 
@@ -243,62 +251,36 @@ static void serial_rx_cb(struct nrf_serial_s const *p_serial, nrf_serial_event_t
         unlock_mutex(&uart_buffer_mutex_lock);
     }
 }
-#else
-void vProcessInput(void *pvParameter1, uint32_t ulParameter2) {
-	if (uart_rx_fill_pos == sizeof(uart_rx_buffer)) // overflow, should not happen as long as packets are parsed quickly enough
-	{
-		NRF_LOG_INFO("*** serial buffer overflow");
-		uart_rx_fill_pos = 0;
-		buf_rdy = false;
-	}
-	if (uart_rx_fill_pos >= PKT_LENGTH) 
-	{
-		buf_rdy = true;
-		check_aducm355_rx_buffer();
-	}
-}
-
-static void serial_rx_cb(struct nrf_serial_s const *p_serial, nrf_serial_event_t event) {
-    if (event == NRF_SERIAL_EVENT_RX_DATA) {
-        lock_mutex(&uart_buffer_mutex_lock);
-
-        // copy received byte to buffer, set buf_rdy flag
-		size_t nRd = 1;
-        ret_code_t err = NRF_SUCCESS;
-		char cRet;
-		for(int i = 0; i < 10 && (NRF_ERROR_BUSY == (err = nrf_serial_read(&serial_uart, &cRet, 1, &nRd, 0))); ++i);
-		if(err == NRF_SUCCESS && nRd == 1) {
-            uart_rx_buffer[uart_rx_fill_pos++] = cRet;
-            BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-			if(pdFALSE == xTimerPendFunctionCallFromISR(&vProcessInput, NULL, uart_rx_fill_pos,  &xHigherPriorityTaskWoken))
-				NRF_LOG_INFO("Process Call Failed");
-            portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-            //portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
-		} else
-			NRF_LOG_INFO("Serial Read Fail %d %d", err, uart_rx_fill_pos);
-        unlock_mutex(&uart_buffer_mutex_lock);
-	}
-}
-#endif
 
 
 static void serial_tx(uint8_t *buf, uint8_t *len, uint8_t nPin) {
     static volatile unsigned int* pUARTTX = (volatile unsigned int*) 0x4000250C;
 //	unsigned int nTXP = *pUARTTX;
 	// n - how much we've send, nOut - size of last transmission, nSend - number of characters to send
-	for(size_t n = 0, nOut = 0, nSend, nErr; n < *len; n += nOut) {
+	for(size_t n = 0, nOut = 0, nSend, nErr, ex = 10000; n < *len; n += nOut, ex = 20000) {
 		// make sure it's empty before sending more (or switching the pin)
-		while(NRF_ERROR_TIMEOUT == nrf_serial_flush(&serial_uart, 0));
-		if(*pUARTTX != nPin) *pUARTTX = nPin;
-		if((nSend = *len - n) > SERIAL_FIFO_TX_SIZE) nSend = SERIAL_FIFO_TX_SIZE;
-		while(NRF_ERROR_BUSY == (nErr = nrf_serial_write(&serial_uart, buf + n, nSend, &nOut, 0)));
-		if(nErr != NRF_SUCCESS) {
-			NRF_LOG_ERROR("**** Serial TX Fail");
-			return;
-		}
+//		while(NRF_ERROR_TIMEOUT == nrf_serial_flush(&serial_uart, 0));
+		for(size_t x = 0; x < ex && NRF_ERROR_TIMEOUT == (nErr = nrf_serial_flush(&serial_uart, 0)); ++x);
+//			taskYIELD();
+		if(nErr == NRF_SUCCESS) {
+			// change the TX pin if needed
+			if(*pUARTTX != nPin) *pUARTTX = nPin;
+			// if it's more than our tx buffer, break it up
+			if((nSend = *len - n) > SERIAL_FIFO_TX_SIZE) nSend = SERIAL_FIFO_TX_SIZE;
+			// send it
+	//		while(NRF_ERROR_BUSY == (nErr = nrf_serial_write(&serial_uart, buf + n, nSend, &nOut, 0)));
+			for(size_t x = 0; x < ex && NRF_ERROR_BUSY == (nErr = nrf_serial_write(&serial_uart, buf + n, nSend, &nOut, 0)); ++x);
+//				taskYIELD();
+			if(nErr == NRF_SUCCESS) continue;
+			NRF_LOG_ERROR("**** Serial TX Fail %d", nErr);
+		} else
+			NRF_LOG_ERROR("**** Serial Flush Fail %d %d", nErr, n);
+		return;
 	}
 //	*pUARTTX = nTXP;
 }
+
+void serial_tx2(uint8_t *buf, uint8_t len, uint8_t nPin) { serial_tx(buf, &len, nPin); }
 
 #if 0
 static void serial_tx(uint8_t *buf, uint8_t *len)
@@ -333,14 +315,28 @@ static void serial_tx(uint8_t *buf, uint8_t *len)
 }
 #endif
 
-static void wait_for_ack(void)
-{
-    uint32_t timeout_ct = 0;
+static void wait_for_ack(void) {
+//	for(uint32_t xStart = xTaskGetTickCount(); !ack_rcvd && TICKS_TO_US(xTaskGetTickCount() - xStart) < UART_TIMEOUT_US; vTaskDelay(1));
+	for(uint32_t i = 0; !ack_rcvd && i < 100; ++i)
+		vTaskDelay(2);
+	return;
+
+	uint32_t xStart = xTaskGetTickCount(); 
+	while(!ack_rcvd) {
+		uint32_t xNow = xTaskGetTickCount();
+		uint32_t xDiff = xNow - xStart;
+		xDiff = TICKS_TO_US(xDiff);
+		if(xDiff > UART_TIMEOUT_US) return;
+		vTaskDelay(1);
+	}
+	return;
+
+	uint32_t timeout_ct = 0;
     do
     {
-		if(xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED)
-			nrf_delay_us(100);
-		else
+//		if(xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED)
+//			nrf_delay_us(100);
+//		else
 			vTaskDelay(1);
         timeout_ct += 100;
     } while (ack_rcvd == false && timeout_ct < UART_TIMEOUT_US);
@@ -388,27 +384,32 @@ NRF_LOG_INFO("Issue measure %d", measurement_index);
         return ret;
     }
     //APP_ERROR_CHECK(ret);
-    nrf_delay_ms(3);
+   // nrf_delay_ms(3);
+#if 0
+   vTaskDelay(10);
 
     // ping the ADuCM355 to get current state
     ret = send_ping_aducm355();
     if(ret != 0)
     {
-		wait_for_ack();
-		if(!ack_rcvd) {
+		if(0 != send_ping_aducm355()) {
+//		wait_for_ack();
+//		if(!ack_rcvd) {
 			NRF_LOG_INFO("Issue measure failed ping");
 			return ret;
 		}
     }
    // APP_ERROR_CHECK(ret);
-
+#endif
     // ensure the ADI chip has transitioned to measure state
     if (aducm355_state == ADUCM355_MEASURE)
     {
         sensing_state = MEASURING; // transition state
         measure_counter_ticks = 0;
-    } else
+    } else {
         NRF_LOG_INFO("Issue measure failed transition");
+		return 1;
+	}
 
     return 0;
 }
@@ -481,7 +482,7 @@ static void check_measuring_state(void)
 {
     // check to see if we've exceeded the maximum amount of time for a measurement
     uint32_t time_measurement_sec = measure_counter_ticks / RTC_FREQUENCY;
-    if (time_measurement_sec >= TIMEOUT_SEC) {
+    if (bRTCInit == false || time_measurement_sec >= TIMEOUT_SEC) {
         NRF_LOG_INFO("Measurement Timeout -- restart");
         sensing_state = PRIMED; // transition state back to primed, retry the measurement
     } else NRF_LOG_INFO("checking %d", measurement_index);
@@ -498,6 +499,8 @@ static void run_gas_sensing_algorithim(float *gas_ppm)
     *gas_ppm = a0 + a1*z_re + a2*powf(z_re,2) + a3*z_im + a4*powf(z_im,2);
     clear_FPU_interrupts();
 }
+
+void new_flush_rx_buffer();
 
 uint32_t init_aducm355_iface(void)
 {
@@ -531,6 +534,9 @@ uint32_t init_aducm355_iface(void)
     if (uart_init)
     {
         ret = nrf_serial_uninit(&serial_uart);
+		//
+		//new_flush_rx_buffer();
+		ResetBuffer();
         APP_ERROR_CHECK(ret);
     }
     uart_rx_fill_pos = uart_rx_parse_pos = 0;
@@ -574,12 +580,12 @@ uint32_t start_aducm355_measurement_seq(gas_sensor_t gas_sensors)
     if (gas_sensors == ALL)
     {
         measurement_setting_index = 0;
-        measurement_num = NUM_GAS_SENSORS * NUM_FREQS_PER_SENSOR;
+        measurement_num = NUM_SENSOR_READINGS; //NUM_GAS_SENSORS * NUM_FREQS_PER_SENSOR;
     }
     else
     {
-        measurement_setting_index = gas_sensors*NUM_FREQS_PER_SENSOR;
-        measurement_num = NUM_FREQS_PER_SENSOR;
+        measurement_setting_index = 0; //gas_sensors*NUM_FREQS_PER_SENSOR;
+        measurement_num = NUM_SENSOR_READINGS; //NUM_FREQS_PER_SENSOR;
     }
 
     // success
@@ -626,6 +632,10 @@ uint32_t continue_aducm355_measurement_seq(gas_sensor_results_t *gas_results, bo
             gas_results[measurement_index].gas_ppm = calc_ppm;
 
 			{
+				if(!measurement_index) {
+					uint8_t nLen = sprintf(txbuffer, "\r\n%d,", TICKS_TO_MS(xTaskGetTickCount()));
+					serial_tx(txbuffer, &nLen, UART_TX_PIN);
+				}
 //				int nRe = aducm355_result.Z_re * 10000.f;
 //				int nIm = aducm355_result.Z_im * 10000.f;
 //				div_t dRe = div(nRe, 10000);
@@ -653,7 +663,7 @@ uint32_t continue_aducm355_measurement_seq(gas_sensor_results_t *gas_results, bo
                 measurement_num = 0;
                 *measurement_done = true;
 
-				uint8_t nLen = sprintf(txbuffer, "%d,%d,%d\r\n", latest_measurement_data.temperature, latest_measurement_data.pressure, latest_measurement_data.humidity);
+				uint8_t nLen = sprintf(txbuffer, "%d,%d,%d,%d", latest_measurement_data.temperature, latest_measurement_data.pressure, latest_measurement_data.humidity,measurement_index);
 				serial_tx(txbuffer, &nLen, UART_TX_PIN);
             }
             break;
@@ -776,5 +786,210 @@ uint32_t send_ping_aducm355(void)
 
 void get_num_aducm355_measurements(uint8_t *num_meas)
 {
-    *num_meas = NUM_GAS_SENSORS*NUM_FREQS_PER_SENSOR;
+//    *num_meas = NUM_GAS_SENSORS*NUM_FREQS_PER_SENSOR;
+    *num_meas = NUM_SENSOR_READINGS;
 }
+
+//////////////////////////////////////////////////////////////////////
+// the new uart processing
+
+#if 0
+
+#define UART_MAX_LEN PKT_LENGTH*3
+
+
+// a circular buffer
+typedef struct uart_type {
+	uint8_t m_buffer[UART_MAX_LEN]; // = {0}; // 2x margin
+	uint8_t m_nRead;
+	uint8_t m_nWrite;
+} Uart;
+
+Uart g_uart = { {0}, 0, 0 };
+
+// push a new character into the buffer
+// return the number of characters available for reading
+size_t push(Uart* p, uint8_t nChar) {
+	p->m_buffer[p->m_nWrite++] = nChar;
+	if(p->m_nWrite == UART_MAX_LEN) p->m_nWrite = 0;
+	return (p->m_nRead <= p->m_nWrite) ? p->m_nWrite - p->m_nRead : (UART_MAX_LEN - p->m_nRead) + p->m_nWrite;
+}
+
+// return the number of characters available for reading
+size_t avail(const Uart* p) {
+	uint8_t nWrite = p->m_nWrite; // m_nWrite could change due to the ISR
+	return (p->m_nRead <= nWrite) ? nWrite - p->m_nRead : (UART_MAX_LEN - p->m_nRead) + nWrite;
+}
+
+// transfer UPTO nMax characters from the buffer into pBuf
+// return the number of characters transfered (between 0 and nMax)
+size_t transfer(Uart* p, uint8_t* pBuf, uint8_t nMax) {
+	uint8_t ret = 0, nWrite = p->m_nWrite; // m_nWrite could change due to the ISR
+	// if the read position is ahead for the write position
+	if(p->m_nRead > nWrite && ret < nMax) {
+		// read from nRead to the end of the buffer
+		// how many characters are available
+		ret = UART_MAX_LEN - p->m_nRead;
+		// more than we need ? trim back to nMax
+		if(ret > nMax) ret = nMax;
+		memcpy(pBuf, p->m_buffer + p->m_nRead, ret);
+		// move nRead
+		if((p->m_nRead += ret) == UART_MAX_LEN)
+			p->m_nRead = 0;
+	}
+	// nRead is before nWrite
+	// read from m_nRead up to nWrite
+	if(ret < nMax) {
+		// amount available
+		uint8_t nRead = nWrite - p->m_nRead;
+		// more than we need ?
+		if(ret + nRead > nMax) nRead = nMax - ret;
+		memcpy(pBuf + ret, p->m_buffer + p->m_nRead, nRead);
+		ret += nRead;
+		// move nRead
+		if((p->m_nRead += nRead) == UART_MAX_LEN)
+			p->m_nRead = 0;
+	}
+	return ret;
+}
+
+// move the read position to the next occurance of nChar
+// return false if no such character found
+bool adv_to(Uart* p, uint8_t nChar) {
+	uint8_t nWrite = p->m_nWrite; // m_nWrite could change (but it will only increment) due to the ISR
+	while(p->m_nRead != nWrite) {
+		if(p->m_buffer[p->m_nRead] == nChar) return true;
+		// those were not the droids we're looking for, advance to the next character (and check for a wrap around)
+		if(++p->m_nRead == UART_MAX_LEN) p->m_nRead = 0;
+	}
+	return false;
+}
+
+void vProcessInput(void *pvParameter1, uint32_t ulParameter2) {
+	// if we found (and moved to) a start byte
+	if(adv_to(&g_uart, START_BYTE)) {
+		// is it (atleast) a full packet length?
+		if(avail(&g_uart) >= PKT_LENGTH) {
+			// figure out the buffer offset of the stop byte
+			uint8_t xLoc = (g_uart.m_nRead + PKT_LENGTH - 1);
+			if(xLoc > UART_MAX_LEN) xLoc -= UART_MAX_LEN;
+			// check for a stop byte
+			if(g_uart.m_buffer[xLoc] == STOP_BYTE) {
+				// move it to a buffer so it's guaranteed to be contiguous
+				transfer(&g_uart, uart_rx_buffer, PKT_LENGTH);
+				// check the CRC
+				uart_packet* pPacket = (uart_packet*) uart_rx_buffer;
+				if(check_crc16(uart_rx_buffer)) {
+					// it had a start byte, stop byte and a valid crc
+					switch (pPacket->cmd) {
+					case CMD_ACK:
+						ack_rcvd = true;
+						parse_aducm355_ack_payload((ack_payload *)&pPacket->payload);
+						return;
+					case CMD_SEND_DATA:
+						parse_aducm355_measure_data((data_payload *)&pPacket->payload);
+						return;
+					}
+					// if we get here, it was a valid packet but had an unknown command
+					NRF_LOG_INFO("*** Packet Bad Cmd");
+				} else NRF_LOG_INFO("*** Packet Bad CRC");
+			} else {
+				NRF_LOG_INFO("*** Packet No Stop Byte, skipping start byte");
+				// move our read pointer up one so we skip this start byte
+				if(++g_uart.m_nRead == UART_MAX_LEN) g_uart.m_nRead = 0;
+			}
+			// debug point, something is wrong with this packet if we get here
+			NRF_LOG_INFO("***Break");
+		}
+    }
+}
+
+////
+// ISR callback -- this is still INSIDE the ISR -- so we need to be quick -- NO PACKET PROCESSING HERE
+void new_serial_rx_cb(struct nrf_serial_s const *p_serial, nrf_serial_event_t event) {
+    if (event == NRF_SERIAL_EVENT_RX_DATA) { // we got a character
+		size_t nRd = 1;
+        ret_code_t err = NRF_SUCCESS;
+		char cRet;
+		// try to read the character
+		for(int i = 0; i < 10 && (NRF_ERROR_BUSY == (err = nrf_serial_read(&serial_uart, &cRet, 1, &nRd, 0))); ++i);
+		if(err == NRF_SUCCESS && nRd == 1) {
+			// push the read character to the circular buffer
+			if(push(&g_uart, cRet) >= PKT_LENGTH) {
+				// if there is atleast PKT_LENGTH in the buffer, call the Process routine
+				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+				if(pdFALSE == xTimerPendFunctionCallFromISR(&vProcessInput, NULL, 0, &xHigherPriorityTaskWoken))
+					NRF_LOG_INFO("*** Serial Process Call Failed");
+				portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+				//portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
+			}
+		} else
+			NRF_LOG_INFO("*** Serial Read Fail %d", err);
+	}
+}
+
+void new_flush_rx_buffer() {
+	g_uart.m_nRead = g_uart.m_nWrite = 0;
+}
+
+#else
+
+extern TaskHandle_t process_uart_input_handle;
+
+uart_packet packet;
+void vProcessInput(void* pvParameter) {
+	for(;;) {
+		// wait for ISR to signal
+//		NRF_LOG_INFO("** Awaiting Packet");
+		ulTaskNotifyTake(pdTRUE,         /* Clear the notification value before exiting (equivalent to the binary semaphore). */
+                      portMAX_DELAY); //) /* Block indefinitely	*/
+		if(FindPacket(&packet)) {
+			switch(packet.cmd) {
+			case CMD_ACK:
+				ack_rcvd = true;
+				parse_aducm355_ack_payload((ack_payload *)&packet.payload);
+				break;
+			case CMD_SEND_DATA:
+				parse_aducm355_measure_data((data_payload *)&packet.payload);
+				break;
+			default:
+				NRF_LOG_INFO("*** Packet Bad Cmd");
+			}
+		}
+	}
+}
+
+
+//volatile int nInUARTISR = 0;
+
+////
+// ISR callback -- this is still INSIDE the ISR -- so we need to be quick -- NO PACKET PROCESSING HERE
+void new_serial_rx_cb(struct nrf_serial_s const *p_serial, nrf_serial_event_t event) {
+//	volatile int* pInUARTISR = &nInUARTISR;
+//	nInUARTISR = 1;
+    if (event == NRF_SERIAL_EVENT_RX_DATA) { // we got a character
+//		nInUARTISR = 2;
+		size_t nRd = 1;
+        ret_code_t err = NRF_SUCCESS;
+		char cRet;
+		// try to read the character
+		for(int i = 0; i < 10 && (NRF_ERROR_BUSY == (err = nrf_serial_read(&serial_uart, &cRet, 1, &nRd, 0))); ++i);
+		if(err == NRF_SUCCESS && nRd == 1) {
+//			nInUARTISR = 3;
+			// push the read character to the circular buffer
+			if(PushBuffer(cRet) >= PKT_LENGTH) {
+//				nInUARTISR = 4;
+				// if there is atleast PKT_LENGTH in the buffer, signal the Process thread
+				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+				vTaskNotifyGiveFromISR(process_uart_input_handle, &xHigherPriorityTaskWoken);
+				if(xHigherPriorityTaskWoken == pdTRUE)
+					portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+			}
+		} else
+			NRF_LOG_INFO("*** Serial Read Fail %d", err);
+	}
+//    nInUARTISR = 0;
+}
+#endif
+
+

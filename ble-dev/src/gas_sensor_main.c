@@ -1,4 +1,5 @@
 /**\mainpage
+/**\mainpage
  * Copyright (C) 2018 GE Global Research
  *
  * Redistribution and use in source and binary forms, with or without
@@ -115,12 +116,11 @@ this should keep the soft device responsive even when not connected or notifying
 
 // gas sensor controller
 #include "aducm355_controller.h"
+#include "aducm355_gas_constants.h"
 
 // external devices (eeprom and temp humidity sensor)
 #include "m24m02.h"
 #include "bme280.h"
-
-#include "os.h"
 
 // nv flash
 #include "nvflash_controller.h"
@@ -168,6 +168,8 @@ NRF_BLE_QWR_DEF(m_qwr);                                             /**< Context
 BLE_ADVERTISING_DEF(m_advertising);                                 /**< Advertising module instance. */
 BLE_HRS_DEF(m_hr);
 
+void serial_tx2(uint8_t *buf, uint8_t len, uint8_t nPin);
+
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;            /**< Handle of the current connection. */
 static sensorsim_cfg_t   m_battery_sim_cfg;                         /**< Battery Level sensor simulator configuration. */
 static sensorsim_state_t m_battery_sim_state;                       /**< Battery Level sensor simulator state. */
@@ -178,6 +180,11 @@ static bool simulated_gas_sensor_data = false;
 static bool simulated_gas_sensor_data = true;
 #endif
 static char m_ble_advertising_name[MAX_BLE_NAME_LENGTH] = {0};
+
+// moved out here so it's not on the stack
+// our gas sensors readings to be transmitted
+uint8_t gas_data[sizeof(gas_sensor_results_t)*NUM_SENSOR_READINGS + 1] = {0};
+const uint16_t gas_data_length = sizeof(gas_sensor_results_t)*NUM_SENSOR_READINGS + 1;
 
 // global bools for handling phone-to-device ble commands (gas service config characteristic)
 static bool read_eeprom_cmd = false;
@@ -195,6 +202,12 @@ TaskHandle_t soft_device_handle = NULL;
 // our init HR function in i2c_device_controller
 void InitHR(ble_hrs_t* pHRS, xSemaphoreHandle);
 
+//xTickType xDelayTime = 200 / portTICK_PERIOD_MS;
+#define MS_TO_TICKS(xMS) pdMS_TO_TICKS(xMS)
+#define US_TO_TICKS(xUS) ((xUS * configTICK_RATE_HZ) / 1000000)
+#define TICKS_TO_US(xTicks) ((xTicks * 1000000) / configTICK_RATE_HZ)
+#define TICKS_TO_MS(xTicks) ((xTicks * 1000) / configTICK_RATE_HZ)
+
 static ble_uuid_t m_adv_uuids[] =                                   /**< Universally unique service identifiers. */
 {
     {BLE_UUID_BATTERY_SERVICE, BLE_UUID_TYPE_BLE},
@@ -210,6 +223,9 @@ static TaskHandle_t battery_task_handle;                            /**< Definit
 static TaskHandle_t hr_task_handle;                            /**< Definition of battery measure handler task. */
 xSemaphoreHandle i2c_semaphore = 0;
 xSemaphoreHandle use_aducm355_semaphore = 0;
+
+TaskHandle_t process_uart_input_handle;
+void vProcessInput(void*);
 
 //static m24m02_storage_block_t latest_measurement_data = {0};
 m24m02_storage_block_t latest_measurement_data = {0};
@@ -230,6 +246,7 @@ static TaskHandle_t m_logger_thread;                                /**< Definit
  */
 static void advertising_start(void * p_erase_bonds);
 
+bool bAdvIdle = true;
 
 /**@brief Callback function for asserts in the SoftDevice.
  *
@@ -349,8 +366,12 @@ static void battery_level_meas_timeout_handler(void * pvParameter) // (TimerHand
     //UNUSED_PARAMETER(xTimer);
     while(1)
     {
+#ifdef DEBUG
+serial_tx2("battery in\r\n", 12, UART_TX_PIN);
+#endif
+
         // this function has been converted to a Task instead of a Timer due to peripheral contention
-        NRF_LOG_INFO("battery %p taking aducm", xTaskGetCurrentTaskHandle());
+//        NRF_LOG_INFO("battery %p taking aducm", xTaskGetCurrentTaskHandle());
         if(xSemaphoreTake(use_aducm355_semaphore,10))
         {
 //            NRF_LOG_INFO("battery %p aducm taken", xTaskGetCurrentTaskHandle());
@@ -362,9 +383,12 @@ static void battery_level_meas_timeout_handler(void * pvParameter) // (TimerHand
  //               NRF_LOG_INFO("battery %p i2c given", xTaskGetCurrentTaskHandle());
                 xSemaphoreGive(i2c_semaphore);
             }
-            NRF_LOG_INFO("battery %p aducm given", xTaskGetCurrentTaskHandle());
+ //           NRF_LOG_INFO("battery %p aducm given", xTaskGetCurrentTaskHandle());
             xSemaphoreGive(use_aducm355_semaphore);
         }
+#ifdef DEBUG
+serial_tx2("battery out\r\n", 13, UART_TX_PIN);
+#endif
         vTaskDelay(1000);
     }
     
@@ -470,7 +494,14 @@ static void gatt_init(void)
  */
 static void nrf_qwr_error_handler(uint32_t nrf_error)
 {
-    APP_ERROR_HANDLER(nrf_error);
+	if (BLE_ERROR_INVALID_CONN_HANDLE == nrf_error) {
+		NRF_LOG_INFO("Recevied invalid connection handle");
+	} else {
+		if (nrf_error == NRF_ERROR_INVALID_STATE)
+			NRF_LOG_INFO("Recevied Invalid Connection state or no execute write request pending.");
+	}
+//	else
+//    APP_ERROR_HANDLER(nrf_error);
 }
 
 
@@ -579,8 +610,8 @@ static void services_init(void)
     hrs_init.hrm_cccd_wr_sec = SEC_OPEN;
     hrs_init.bsl_rd_sec      = SEC_OPEN;
 
-    err_code = ble_hrs_init(&m_hr, &hrs_init);
-    APP_ERROR_CHECK(err_code);
+//    err_code = ble_hrs_init(&m_hr, &hrs_init);
+//    APP_ERROR_CHECK(err_code);
 }
 
 
@@ -623,6 +654,9 @@ static void application_timers_start(void)
  */
 static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
 {
+#ifdef DEBUG
+serial_tx2("conn in\r\n", 9, UART_TX_PIN);
+#endif
     ret_code_t err_code;
 
     if (p_evt->evt_type == BLE_CONN_PARAMS_EVT_FAILED)
@@ -630,6 +664,9 @@ static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
         err_code = sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_CONN_INTERVAL_UNACCEPTABLE);
         APP_ERROR_CHECK(err_code);
     }
+#ifdef DEBUG
+serial_tx2("conn out\r\n", 10, UART_TX_PIN);
+#endif
 }
 
 
@@ -694,7 +731,9 @@ static void sleep_mode_enter(void)
 static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 {
     uint32_t err_code;
-
+#ifdef DEBUG
+serial_tx2("adv in\r\n", 8, UART_TX_PIN);
+#endif
     switch (ble_adv_evt)
     {
         case BLE_ADV_EVT_FAST:
@@ -705,11 +744,15 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 
         case BLE_ADV_EVT_IDLE:
 //            sleep_mode_enter();
+			bAdvIdle = true;
             break;
 
         default:
             break;
     }
+#ifdef DEBUG
+serial_tx2("adv out\r\n", 9, UART_TX_PIN);
+#endif
 }
 
 
@@ -720,6 +763,10 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
  */
 static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 {
+#ifdef DEBUG
+serial_tx2("ble-e in\r\n", 10, UART_TX_PIN);
+#endif
+
     uint32_t err_code;
 
     switch (p_ble_evt->header.evt_id)
@@ -779,6 +826,9 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             // No implementation needed.
             break;
     }
+#ifdef DEBUG
+serial_tx2("ble-e out\r\n", 11, UART_TX_PIN);
+#endif
 }
 
 
@@ -813,6 +863,14 @@ static void ble_stack_init(void)
     ble_cfg.gatts_cfg.attr_tab_size.attr_tab_size = BLE_GATTS_ATTR_TAB_SIZE_DEFAULT + 256;
     err_code = sd_ble_cfg_set(BLE_GATTS_CFG_ATTR_TAB_SIZE, &ble_cfg, ram_start);
 
+
+//	// Configure the maximum ATT MTU if our data packet is too big
+//	if(gas_data_length > NRF_SDH_BLE_GATT_MAX_MTU_SIZE) {
+//		memset(&ble_cfg, 0x00, sizeof(ble_cfg));
+//		ble_cfg.conn_cfg.conn_cfg_tag                 = 1;
+//		ble_cfg.conn_cfg.params.gatt_conn_cfg.att_mtu = gas_data_length;
+//		err_code = sd_ble_cfg_set(BLE_CONN_CFG_GATT, &ble_cfg, ram_start);
+//	}
 #if 0
     // Configure the number of custom UUIDS.
     memset(&ble_cfg, 0, sizeof(ble_cfg));
@@ -992,6 +1050,7 @@ static void SoftDeviceHook(void * p_erase_bonds) {
 /**@brief Function for starting advertising. */
 static void advertising_start(void * p_erase_bonds)
 {
+	bAdvIdle = false;
 
     bool erase_bonds = *(bool*)p_erase_bonds;
 
@@ -1050,14 +1109,37 @@ static void gas_characteristic_update(ble_gas_char_update_t char_update, uint8_t
 }
 
 
+volatile bool bDumpRTOS = false;
+char buffTasks[512];
+
 /**@brief A function which is hooked to idle task.
  * @note Idle hook must be enabled in FreeRTOS configuration (configUSE_IDLE_HOOK).
  */
 void vApplicationIdleHook( void )
 {
+	static uint32_t xLast = 0;
+	static uint32_t xMark = 0;
+	uint32_t xThis = xTaskGetTickCount();
+
 #if NRF_LOG_ENABLED
+	if(xThis > xMark + 2000) {
+		NRF_LOG_INFO("ticks %d %d %d", xThis - xMark, xThis, xMark);
+		xMark = xThis;
+	}
+
+	 if(bDumpRTOS) {
+		bDumpRTOS = false;
+
+//		if(eBlocked == eTaskGetState(aducm355_measure_task_handle))
+			vTaskSuspend(aducm355_measure_task_handle);
+			vTaskResume(aducm355_measure_task_handle);
+//		vTaskList(buffTasks);
+//		NRF_LOG_INFO("RTOS: ***%s", buffTasks);
+//		serial_tx2(buffTasks, strlen(buffTasks), UART_TX_PIN);
+	 }
      vTaskResume(m_logger_thread);
 #endif
+	xLast = xThis;
 }
 
 /**@brief Function for initializing the clock.
@@ -1080,13 +1162,16 @@ static void bme280_measure_task (void * pvParameter)
     UNUSED_PARAMETER(pvParameter);
     while(1)
     {
+#ifdef DEBUG
+serial_tx2("bme280 in\r\n", 11, UART_TX_PIN);
+#endif
 #ifdef BOARD_PCA10056
         get_sensor_data(BME280, &p_data[0], &p_data_length);
         memcpy(&latest_measurement_data.temperature, &p_data[0], sizeof(latest_measurement_data.temperature));
         memcpy(&latest_measurement_data.humidity, &p_data[4], sizeof(latest_measurement_data.humidity));
         memcpy(&latest_measurement_data.pressure, &p_data[8], sizeof(latest_measurement_data.pressure));
 #else
-        NRF_LOG_INFO("bme280 %p taking i2c", xTaskGetCurrentTaskHandle());
+//        NRF_LOG_INFO("bme280 %p taking i2c", xTaskGetCurrentTaskHandle());
         if(xSemaphoreTake(i2c_semaphore,BME280_MEASURE_INTERVAL))
         {
 //            NRF_LOG_INFO("bme280 %p taken i2c", xTaskGetCurrentTaskHandle());
@@ -1094,7 +1179,7 @@ static void bme280_measure_task (void * pvParameter)
             memcpy(&latest_measurement_data.temperature, &p_data[0], sizeof(latest_measurement_data.temperature));
             memcpy(&latest_measurement_data.humidity, &p_data[4], sizeof(latest_measurement_data.humidity));
             memcpy(&latest_measurement_data.pressure, &p_data[8], sizeof(latest_measurement_data.pressure));
-            NRF_LOG_INFO("bme280 %p giving i2c", xTaskGetCurrentTaskHandle());
+ //           NRF_LOG_INFO("bme280 %p giving i2c", xTaskGetCurrentTaskHandle());
             xSemaphoreGive(i2c_semaphore);
         }
 #endif
@@ -1103,6 +1188,9 @@ static void bme280_measure_task (void * pvParameter)
             NRF_LOG_INFO("bme280 %p publish", xTaskGetCurrentTaskHandle());
             gas_characteristic_update(ble_gas_srv_temp_humid_pressure_update, &p_data[0], &p_data_length);
         }
+#ifdef DEBUG
+serial_tx2("bme280 out\r\n", 12, UART_TX_PIN);
+#endif
         vTaskDelay(BME280_MEASURE_INTERVAL);
     }
 }
@@ -1139,6 +1227,9 @@ static void generate_simulated_aducm355_data(gas_sensor_results_t *gas_results)
     }
 }
 
+
+static gas_sensor_results_t gas_results[NUM_SENSOR_READINGS] = {0};
+
 /**@brief Function for pinging the ADuCM355 for a measurement.
  */
 static void aducm355_measure_task (void * pvParameter)
@@ -1146,27 +1237,32 @@ static void aducm355_measure_task (void * pvParameter)
     ret_code_t err_code;
     static bool measurement_in_progress = false;
     static bool measurement_done = false;
-    static gas_sensor_results_t gas_results[16] = {0};
+//    static gas_sensor_results_t gas_results[16] = {0};
     static gas_sensing_state_t gas_sensing_state;
     static uint32_t ms_count = 0;
-    static bool aducm355_recover_iface = true;
+    static bool aducm355_recover_iface = true;  // flag this true so the uart is initialized on task start
     static uint32_t num_measurements = 0;
     static uint32_t current_thread_delay = ADUCM355_MEASURE_INTERVAL_DISCONNECTED;
 
-    uint16_t p_data_length = sizeof(gas_sensor_results_t)*16 + 1;
-    uint8_t  p_data[sizeof(gas_sensor_results_t)*16 + 1] = {0};
-    get_num_aducm355_measurements(&p_data[0]);
+    get_num_aducm355_measurements(&gas_data[0]);
     
+	bool bEraseBonds = false;
+	uint16_t gas_data_length_local = gas_data_length;
+
     UNUSED_PARAMETER(pvParameter);
-    while(1)
-    {
+    while(1) {
+
+#ifdef DEBUG
+serial_tx2("measure in\r\n", 12, UART_TX_PIN);
+#endif
+
         // try to take it immediately
-        NRF_LOG_INFO("adu %p taking aducm", xTaskGetCurrentTaskHandle());
+        NRF_LOG_INFO("taking aducm");
         if(!xSemaphoreTake(use_aducm355_semaphore,1))
         {
             continue;
         }
- //       NRF_LOG_INFO("adu %p aducm taken", xTaskGetCurrentTaskHandle());
+       NRF_LOG_INFO("aducm taken");
 
         if (aducm355_recover_iface)
         {
@@ -1194,8 +1290,8 @@ static void aducm355_measure_task (void * pvParameter)
               NRF_LOG_INFO("adu failed recover %d", err_code);
                 current_thread_delay = ADUCM355_MEASURE_CHECK_INTERVAL;
             }
-            NRF_LOG_INFO("adu %p aducm given", xTaskGetCurrentTaskHandle());
             xSemaphoreGive(use_aducm355_semaphore);
+            NRF_LOG_INFO("aducm given, delay %d", current_thread_delay);
             vTaskDelay(current_thread_delay);
             continue;
         }
@@ -1216,13 +1312,16 @@ static void aducm355_measure_task (void * pvParameter)
             // start new measurement if not already in progress
             if(measurement_in_progress == false)
             {
+			NRF_LOG_INFO("start measure %d", ms_count);
                 err_code = start_aducm355_measurement_seq(ALL);
                 if (err_code == 0)
                 {
+			NRF_LOG_INFO("measure active");
                     measurement_in_progress = true;
                 }
                 else
                 {
+			NRF_LOG_INFO("measure fail");
                     aducm355_recover_iface = true; 
                 }
 
@@ -1231,9 +1330,11 @@ static void aducm355_measure_task (void * pvParameter)
             }
             else // else wait for it to finish / continue on
             {
+			NRF_LOG_INFO("check measure %d", ms_count);
                 err_code = continue_aducm355_measurement_seq(&gas_results[0], &measurement_done);
                 if (err_code != 0)
                 {
+			NRF_LOG_INFO("check fail");
                     measurement_in_progress = false;
                     aducm355_recover_iface = true; 
                 }       
@@ -1249,9 +1350,9 @@ static void aducm355_measure_task (void * pvParameter)
             // update characteristic is connected
             if (m_ble_connected_bool)
             {   
-                memcpy(&p_data[1], (uint8_t*) &gas_results, sizeof(gas_sensor_results_t)*16);
-                //gas_characteristic_update(ble_gas_srv_gas_sensor_update, (uint8_t*) &gas_results, &p_data_length);
-                gas_characteristic_update(ble_gas_srv_gas_sensor_update, &p_data[0], &p_data_length);
+                memcpy(&gas_data[1], (uint8_t*) &gas_results, sizeof(gas_sensor_results_t)*NUM_SENSOR_READINGS);
+                //gas_characteristic_update(ble_gas_srv_gas_sensor_update, (uint8_t*) &gas_results, &gas_data_length);
+                gas_characteristic_update(ble_gas_srv_gas_sensor_update, &gas_data[0], &gas_data_length_local);
                 current_thread_delay = ADUCM355_MEASURE_INTERVAL_CONNECTED;
                 NRF_LOG_INFO("Measurement Updated %d %d", num_measurements, xTaskGetTickCount()); // BCA
             }
@@ -1265,10 +1366,10 @@ static void aducm355_measure_task (void * pvParameter)
                 if(xSemaphoreTake(i2c_semaphore,ADUCM355_MEASURE_INTERVAL_CONNECTED))
                 {
 
- //                   NRF_LOG_INFO("adu %p i2c taken", xTaskGetCurrentTaskHandle());
+                   NRF_LOG_INFO("i2c taken");
                     //store_sensor_data_eeprom(&latest_measurement_data, &ms_count);
- //                   NRF_LOG_INFO("adu %p i2c given", xTaskGetCurrentTaskHandle());
                     xSemaphoreGive(i2c_semaphore);
+                   NRF_LOG_INFO("i2c given");
                 }
 #endif
                 current_thread_delay = ADUCM355_MEASURE_INTERVAL_DISCONNECTED;
@@ -1281,12 +1382,25 @@ static void aducm355_measure_task (void * pvParameter)
             // reset counter
             ms_count = 0;
         }
-        NRF_LOG_INFO("adu %p aducm given", xTaskGetCurrentTaskHandle());
+        //NRF_LOG_INFO("adu %p aducm given", xTaskGetCurrentTaskHandle());
         xSemaphoreGive(use_aducm355_semaphore);
-        NRF_LOG_INFO("adu %p aducm post given", xTaskGetCurrentTaskHandle());
+        NRF_LOG_INFO("aducm given");
         // BCA
-        PokeSoftDevice(true);
-        NRF_LOG_INFO("adu %p aducm post poke", xTaskGetCurrentTaskHandle());
+		if(bAdvIdle) {
+#ifdef DEBUG
+serial_tx2("ble restart\r\n", 13, UART_TX_PIN);
+#endif
+        NRF_LOG_INFO("adv restart");
+		advertising_start(&bEraseBonds);
+#ifdef DEBUG
+serial_tx2("ble out\r\n", 9, UART_TX_PIN);
+#endif
+		} //else 
+		//	PokeSoftDevice(false);
+#ifdef DEBUG
+serial_tx2("measure out\r\n", 13, UART_TX_PIN);
+#endif
+        NRF_LOG_INFO("aducm delay %d", current_thread_delay);
         vTaskDelay(current_thread_delay);
     }
 }
@@ -1400,14 +1514,15 @@ static void gas_sensor_init(void)
 #endif
     APP_ERROR_CHECK(nrf_drv_gpiote_out_init(LED_2, &out_config));
 
-    for (uint8_t lcv = 0; lcv < 20; lcv++)
+    for (uint8_t lcv = 0; lcv < 10; lcv++)
     {
         nrf_drv_gpiote_out_toggle(LED_2);
-        nrf_delay_ms(500);
+        nrf_delay_ms(400);
     }
 #if 0
     if (!simulated_gas_sensor_data)
     {
+		// !! DON'T DO THIS HERE -- THE SCHEDULER IS NOT RUNNING YET !!
         // check for ADI chip, if not here then stay here.
         while(init_aducm355_iface())
         {
@@ -1416,6 +1531,13 @@ static void gas_sensor_init(void)
     }
 #endif
     nrf_drv_gpiote_out_toggle(LED_2);
+
+    xReturned = xTaskCreate(&vProcessInput, "UART Input", configMINIMAL_STACK_SIZE, NULL, 1, &process_uart_input_handle);
+    if (xReturned != pdPASS)
+    {
+        NRF_LOG_ERROR("Process UART input task not created.");
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
 
     xReturned = xTaskCreate(aducm355_measure_task, "ADUCM355_Meas", configMINIMAL_STACK_SIZE + 200, NULL, 1, &aducm355_measure_task_handle);
     if (xReturned != pdPASS)
@@ -1523,5 +1645,3 @@ int main(void)
         APP_ERROR_HANDLER(NRF_ERROR_FORBIDDEN);
     }
 }
-
-

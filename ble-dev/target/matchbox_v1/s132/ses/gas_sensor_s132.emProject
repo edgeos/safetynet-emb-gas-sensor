@@ -21,6 +21,7 @@
       debug_register_definition_file="$(NRF_SDK_DIR)/modules/nrfx/mdk/nrf52.svd"
       debug_start_from_entry_point_symbol="No"
       debug_target_connection="J-Link"
+      gcc_cplusplus_language_standard="c++11"
       gcc_debugging_level="Level 3"
       gcc_entry_point="Reset_Handler"
       linker_output_format="hex"
@@ -133,6 +134,8 @@
       <file file_name="../../../../src/i2c.cpp" />
       <file file_name="../../../../src/i2c.h" />
       <file file_name="../../../../src/os.h" />
+      <file file_name="../../../../src/uart.cpp" />
+      <file file_name="../../../../src/uart.h" />
     </folder>
     <folder Name="nRF_Segger_RTT">
       <file file_name="$(NRF_SDK_DIR)/external/segger_rtt/SEGGER_RTT.c" />
@@ -193,7 +196,17 @@
         <configuration Name="Debug" build_exclude_from_build="No" />
       </file>
     </folder>
-    <configuration Name="Debug" gcc_optimization_level="None" speed="1000" />
+    <configuration
+      Name="Debug"
+      c_preprocessor_definitions="DEBUG"
+      gcc_optimization_level="None"
+      speed="1000" />
+    <folder
+      Name="common"
+      exclude=""
+      filter=""
+      path="../../../../../common"
+      recurse="No" />
   </project>
   <configuration Name="Release" c_preprocessor_definitions="NDEBUG" />
   <configuration

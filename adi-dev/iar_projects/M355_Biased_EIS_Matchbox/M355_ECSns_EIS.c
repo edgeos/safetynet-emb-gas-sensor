@@ -45,6 +45,9 @@ to ensure that the resulting application performs as required and is safe.
 #include "aducm355_cmd_protocol.h"
 #include "AfeWdtLib.h"
 
+#include "../../../common/Packet.h"
+void CheckUART();
+
 /*
     Configure measurement for 2/3 lead sensor
     0 - 3 lead sensor
@@ -56,6 +59,8 @@ void ClockInit(void);
 void UartInit(void);
 void GPIOInit(void);
 void ChargeECSensor(void);
+void DoMeasurement();
+void blink(int n, int nDms);
 
 volatile uint8_t dftRdy = 0;
 volatile uint32_t ucButtonPress =0 ;
@@ -72,15 +77,12 @@ unsigned char szTemp[256] = {0};	       // Used to build string before printing 
 unsigned char szInSring[256] = {0};	       // Used to acquire incoming string from the UART
 volatile unsigned char szbuffer[16];           // Debug buffer to test Rx FIFO
 unsigned char ucPacketReceived = 0;            // Flag to indicate UART byte received
+unsigned char ucUartDataRcvd = 0;            // Flag to indicate UART byte received
 unsigned char ucInCnt = 0;                     // Used to count incoming bytes over the UART
 unsigned char ucNumRxIrqs = 0;                 // test variable to count number of Rx interrupts
 unsigned char ucNumToIrqs = 0;                 // test variable to count number of Time-out interrupts
 int iNumBytesInFifo = 0;                       // Used to determine the number of bytes in the UART FIFO
         
-volatile uint32_t ucUartDataRcvd = 0;
-volatile uint32_t ackRcvd = 0;
-volatile uint32_t measureOn = 0;
-
 static uart_packet rx_packet = {0};
 static uint8_t uart_tx_buffer[256] = {0};
 static uint8_t uart_tx_length = 0;
@@ -89,6 +91,9 @@ static bool send_ack = false;
 ImpResult_t ImpResult[100] = {0};
 float measurement_freq = 0.0f;
 uint16_t num_to_avg = 0;
+
+volatile uint8_t measureOn = 0;
+volatile uint8_t ackRcvd = 0;
 
 aducm355_state_t current_state    = ADUCM355_IDLE;
 MeasResult_t meas_result          = {0};
@@ -111,12 +116,16 @@ void main(void)
    }
    
 #endif
+
    AfeWdtGo(false);                            // Turn off AFE watchdog timer for debug purposes
    pADI_ALLON->EI2CON = 0x08; //this will be set in system init function, Enable dummy read to wake up AFE die
    GPIOInit();                                 // init GPIO pins
    ClockInit();                                // Init system clock sources
+//   blink(3, 200);
    UartInit();                                 // Init UART for 57600-8-N-1
-
+   
+   AfeDioSetPin(pADI_AGPIO2, PIN1); // LED on during init
+ 
    pSnsCfg0 = getSnsCfg(CHAN0);
    pSnsCfg1 = getSnsCfg(CHAN1);
    if((pSnsCfg0->Enable == SENSOR_CHANNEL_ENABLE))
@@ -134,20 +143,32 @@ void main(void)
       //printf("Finish" EOL);
    }
    ChargeECSensor();
+   AfeDioClrPin(pADI_AGPIO2, PIN1); 
    
    // configure WDT - reset the WDT every time a full packet is received on UART, else reboot the chip
    AfeWdtLd(0x180);  //0x180 = 3 second timeout period, 0x200 = 4 second timeout period, 0x400 = 8 second
+   AfeWdtLd(0x1000);  //0x180 = 3 second timeout period, 0x200 = 4 second timeout period, 0x400 = 8 second
    AfeWdtCfg(WDT_MODE_PERIODIC,ENUM_WDT_CTL_DIV256,WDT_RESET_EN,WDT_CLKIN_DIV1); //128Hz
    AfeWdtPowerDown(AFEWDT_OFF_FOR_PD); //Afe watchdog not running while MCU in hibernate
+//#ifndef _DEBUG
    AfeWdtGo(true);
+//#endif
    
    measureOn = 0;
+   uint32_t i = 0;
    while(1)
    {
       if (measureOn)
       {       
-         StartMeasurement(); 
+         DoMeasurement(); 
+         i = 0;
+      } else {
+        // heart beat, the ADI chip is still active
+        if(!(++i % 400000))
+          blink(2, 200);
       }
+      
+      CheckUART();
       
       /*
       // For going to sleep
@@ -168,8 +189,7 @@ void main(void)
    }
 }
 
-void StartMeasurement()
-{
+void DoMeasurement() {
    AfeDioSetPin(pADI_AGPIO2, PIN1); // LED on during measurement
    DioClrPin(pADI_GPIO2,PIN4); 
    SnsACInit(CHAN0);
@@ -192,11 +212,13 @@ void StartMeasurement()
    AfeHpTiaPwrUp(false);
 }
 
+#if 0
 void UartRxParser()
 {
    uint8_t mid_ind = sizeof(szInSring)/2;
    if (look_for_packet(&szInSring[0],(uint8_t)ucInCnt,&rx_packet))
    {
+
       // reset WDT when valid packet received
       AfeWdtKick();
      
@@ -210,7 +232,9 @@ void UartRxParser()
             send_ack = true;
             break;
          case CMD_START_MEASURE:
+
             ConfigImpMeasurement();
+
             measureOn = 1;
             current_state = ADUCM355_MEASURE;
             send_ack = true;
@@ -237,6 +261,7 @@ void UartRxParser()
      ucInCnt = ucInCnt-mid_ind;
   }
 }
+#endif
 
 void SendMeasurement()
 {
@@ -786,6 +811,7 @@ uint8_t SnsMagPhaseCal()
       //                            |Mag(RSensor+Rload)|*|Mag(RLoad)) 
       Var1 = ImpResult[i].DFT_Mag[2]*ImpResult[i].DFT_Mag[3]*AFE_RCAL; // Mag(RCAL)*Mag(RSENSOR)*RCAL
       Var2 = ImpResult[i].DFT_Mag[0]*ImpResult[i].DFT_Mag[1];          // Mag(RSENSE+LOAD)*Mag(RLOAD)   
+     if(Var2)
       Var1 = Var1/Var2;
       ImpResult[i].Mag = Var1;
       
@@ -794,6 +820,7 @@ uint8_t SnsMagPhaseCal()
       //                                       |Mag(RSensor+Rload)|*|Mag(RSensor+Rload)| 
       Var1 = ImpResult[i].DFT_Mag[2]*ImpResult[i].DFT_Mag[0]*AFE_RCAL; // Mag(Rload)*Mag(Rcal)*RCAL
       Var2 = ImpResult[i].DFT_Mag[0]*ImpResult[i].DFT_Mag[0];          // Mag(RSENSE+LOAD)*Mag(RSENSE+LOAD)   
+     if(Var2)
       Var1 = Var1/Var2;
       ImpResult[i].RloadMag = (Var1 - ImpResult[i].Mag);               // Magnitude of Rload in ohms
       
@@ -946,7 +973,8 @@ void UART_Int_Handler()
       for (i=0; i<iNumBytesInFifo;i++)
       {
          ucComRx = UrtRx(pADI_UART0);
-         szInSring[ucInCnt++]= ucComRx;
+//         szInSring[ucInCnt++]= ucComRx;
+         PushBuffer(ucComRx);
       }
       ucUartDataRcvd = 1;
    }
@@ -957,10 +985,12 @@ void UART_Int_Handler()
       for (i=0; i<iNumBytesInFifo;i++)
       {
          ucComRx = UrtRx(pADI_UART0);
-         szInSring[ucInCnt++]= ucComRx;
+//         szInSring[ucInCnt++]= ucComRx;
+         PushBuffer(ucComRx);
       }
       ucUartDataRcvd = 1;
    }
+#if 0
    // handle received UART bytes
    if (ucUartDataRcvd)
    {
@@ -975,6 +1005,7 @@ void UART_Int_Handler()
       TxUartBuffer(uart_tx_length, false);
       send_ack = false;
    }
+#endif
 }
 
 void AfeAdc_Int_Handler()
@@ -1004,3 +1035,76 @@ void GPIO_A_Int_Handler()
 
 
 /**@}*/
+
+void blink(int n, int nDms) {
+  for(int i = 0; i < n; ++i) {
+   AfeDioSetPin(pADI_AGPIO2, PIN1); // LED on
+   delay_10us(100 * nDms);
+   AfeDioClrPin(pADI_AGPIO2, PIN1); 
+   delay_10us(100 * nDms);
+  }
+}
+
+void HardFault_Handler(void) {
+  /*
+  blink(1, 200);
+  blink(1, 100);
+  blink(1, 200);
+  blink(1, 100);
+  blink(1, 200);
+  blink(1, 100);
+  blink(1, 200);
+  blink(1, 100);
+*/
+  NVIC_SystemReset();
+  while(1);
+}   /* -13 */
+void MemManage_Handler(void) {        
+  while(1);
+}   /* -12 */
+void BusFault_Handler(void) {         
+  while(1);
+}   /* -11 */
+void UsageFault_Handler(void) { 
+  while(1);
+}
+
+void CheckUART() {
+      while(FindPacket(&rx_packet)) {
+        // reset WDT when valid packet received
+        AfeWdtKick();
+   
+        // do different actions depending on packet type
+        switch (rx_packet.cmd)
+        {
+           case CMD_PING:
+              send_ack = true;
+              break;
+           case CMD_START_MEASURE:
+              ConfigImpMeasurement();
+              measureOn = 1;
+              current_state = ADUCM355_MEASURE;
+              send_ack = true;
+              break;
+           case CMD_STOP_MEASURE:
+              send_ack = true;
+              break;
+           case CMD_ACK:
+              ackRcvd = 1;
+              break;
+           case CMD_SLEEP:
+              current_state = ADUCM355_SLEEP;
+              send_ack = true;
+              break;
+           case CMD_SEND_DATA: // shouldn't receive here
+           default:
+              break;
+        }
+
+        if(send_ack) {
+          build_ack_packet(&uart_tx_buffer[0], &uart_tx_length, &rx_packet, current_state);
+          TxUartBuffer(uart_tx_length, false);
+          send_ack = false;
+        }
+      }
+} 
