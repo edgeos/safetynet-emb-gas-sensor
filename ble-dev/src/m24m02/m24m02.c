@@ -124,6 +124,7 @@ bool m24m02_eeprom(uint8_t rw, uint32_t eepromAddress, uint8_t data_byte, uint8_
     {
         read(eepromAddress, data_byte, infoArray);
     }
+	return true;
 }
 
 

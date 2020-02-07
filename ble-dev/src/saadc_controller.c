@@ -22,8 +22,8 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
-#define SAADC_SAMPLES_IN_BUFFER    1    // Number of SAADC samples in RAM before returning a SAADC event. For low power SAADC set this constant to 1. Otherwise the EasyDMA will be enabled for an extended time which consumes high current.
-#define SAADC_VOLTAGE_SAMPLES      1    
+#define SAADC_SAMPLES_IN_BUFFER    2    // Number of SAADC samples in RAM before returning a SAADC event. For low power SAADC set this constant to 1. Otherwise the EasyDMA will be enabled for an extended time which consumes high current.
+#define SAADC_VOLTAGE_SAMPLES      2    
 
 static nrf_saadc_value_t m_buffer_pool[2][SAADC_SAMPLES_IN_BUFFER];
 static bool              m_saadc_initialized = false;
@@ -31,6 +31,9 @@ static float             vRef = 3.6f;
 static float             resCts = 16384; // 8-bit = 255, 10-bit = 1024, 12-bit = 4096, 14-bit = 16384
 static float             battery_voltage = 2.1f; // start moving at average at "full" battery charge
 static float             new_meas_weight = 0.1f;
+
+float voltO2 = 0.f;
+float vRaw = 0.f;
 
 static void clear_FPU_interrupts(void)
 {
@@ -55,6 +58,9 @@ static void saadc_electrode_callback(nrf_drv_saadc_evt_t const * p_event)
         battery_voltage = battery_voltage*(1-new_meas_weight) + new_meas_weight*(vRef*p_event->data.done.p_buffer[0])/resCts;
         //clear_FPU_interrupts();
 
+		vRaw = (vRef*p_event->data.done.p_buffer[0])/resCts;
+		voltO2 = (vRef*p_event->data.done.p_buffer[1])/resCts;
+
         // turn off SAADC
         m_saadc_initialized = false;
         nrf_drv_saadc_uninit();                                                                   //Unintialize SAADC to disable EasyDMA and save power
@@ -69,9 +75,12 @@ static void saadc_channels_init(void)
 {
     ret_code_t err_code;
     
-    nrf_saadc_channel_config_t channel_config0 =
-        NRF_DRV_SAADC_DEFAULT_CHANNEL_CONFIG_SE(NRF_SAADC_INPUT_AIN3);
-    channel_config0.reference = NRF_SAADC_REFERENCE_INTERNAL;
+    nrf_saadc_channel_config_t channel_config[] = {
+        NRF_DRV_SAADC_DEFAULT_CHANNEL_CONFIG_SE(NRF_SAADC_INPUT_AIN3),
+        NRF_DRV_SAADC_DEFAULT_CHANNEL_CONFIG_SE(NRF_SAADC_INPUT_AIN0) };
+    channel_config[0].reference = NRF_SAADC_REFERENCE_INTERNAL;
+    channel_config[1].reference = NRF_SAADC_REFERENCE_INTERNAL;
+
 
     //Configure SAADC
     nrf_drv_saadc_config_t saadc_config;
@@ -84,7 +93,9 @@ static void saadc_channels_init(void)
     APP_ERROR_CHECK(nrf_drv_saadc_init(&saadc_config, saadc_electrode_callback));                   //Initialize the SAADC with configuration and callback function. The application must then implement the saadc_callback function, which will be called when SAADC interrupt is triggered
 	
     //Initialize SAADC channel
-    err_code = nrf_drv_saadc_channel_init(0, &channel_config0);                            //Initialize SAADC channel 0 with the channel configuration
+    err_code = nrf_drv_saadc_channel_init(0, channel_config);                            //Initialize SAADC channel 0 with the channel configuration
+    APP_ERROR_CHECK(err_code);
+    err_code = nrf_drv_saadc_channel_init(1, channel_config + 1);                            //Initialize SAADC channel 0 with the channel configuration
     APP_ERROR_CHECK(err_code);
 
     err_code = nrf_drv_saadc_buffer_convert(m_buffer_pool[0], SAADC_SAMPLES_IN_BUFFER);

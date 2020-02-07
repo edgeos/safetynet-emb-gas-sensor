@@ -317,7 +317,7 @@ static void serial_tx(uint8_t *buf, uint8_t *len)
 
 static void wait_for_ack(void) {
 //	for(uint32_t xStart = xTaskGetTickCount(); !ack_rcvd && TICKS_TO_US(xTaskGetTickCount() - xStart) < UART_TIMEOUT_US; vTaskDelay(1));
-	for(uint32_t i = 0; !ack_rcvd && i < 100; ++i)
+	for(uint32_t i = 0; !ack_rcvd && i < 200; ++i)
 		vTaskDelay(2);
 	return;
 
@@ -366,7 +366,7 @@ static uint32_t send_measurement_aducm355(void)
     uint8_t pkt_length;
     gas_sensor_t use_sensor;
 
-NRF_LOG_INFO("Issue measure %d", measurement_index);
+//NRF_LOG_INFO("Issue measure %d", measurement_index);
     // get the constants for the current measurement_setting_index (global var)
     uint16_t num_avg;
     float freq;
@@ -380,7 +380,8 @@ NRF_LOG_INFO("Issue measure %d", measurement_index);
     ret = tx_and_wait_for_ack(&uart_tx_buffer[0], &pkt_length);
     if(ret != 0)
     {
-    NRF_LOG_INFO("Issue measure failed ack");
+//    NRF_LOG_INFO("Issue measure failed ack");
+	serial_tx2("fail issue\r\n",12, UART_TX_PIN);
         return ret;
     }
     //APP_ERROR_CHECK(ret);
@@ -407,6 +408,7 @@ NRF_LOG_INFO("Issue measure %d", measurement_index);
         sensing_state = MEASURING; // transition state
         measure_counter_ticks = 0;
     } else {
+	serial_tx2("fail trans\r\n",12, UART_TX_PIN);
         NRF_LOG_INFO("Issue measure failed transition");
 		return 1;
 	}
@@ -485,7 +487,7 @@ static void check_measuring_state(void)
     if (bRTCInit == false || time_measurement_sec >= TIMEOUT_SEC) {
         NRF_LOG_INFO("Measurement Timeout -- restart");
         sensing_state = PRIMED; // transition state back to primed, retry the measurement
-    } else NRF_LOG_INFO("checking %d", measurement_index);
+    } //else NRF_LOG_INFO("checking %d", measurement_index);
 }
 
 static void run_gas_sensing_algorithim(float *gas_ppm)
@@ -496,7 +498,8 @@ static void run_gas_sensing_algorithim(float *gas_ppm)
     float z_re, z_im;
     z_re = aducm355_result.Z_re;
     z_im = aducm355_result.Z_im;
-    *gas_ppm = a0 + a1*z_re + a2*powf(z_re,2) + a3*z_im + a4*powf(z_im,2);
+//    *gas_ppm = a0 + a1*z_re + a2*powf(z_re,2) + a3*z_im + a4*powf(z_im,2);
+	*gas_ppm = a0 + z_re * (a1 + z_re * a2) + z_im * (a3 + z_im * a4);
     clear_FPU_interrupts();
 }
 
@@ -556,6 +559,7 @@ uint32_t start_aducm355_measurement_seq(gas_sensor_t gas_sensors)
     ret = send_ping_aducm355();
     if(ret != 0)
     {
+        if(send_ping_aducm355())
         return ret;
     }
     //APP_ERROR_CHECK(ret);
@@ -593,6 +597,12 @@ uint32_t start_aducm355_measurement_seq(gas_sensor_t gas_sensors)
 }
 
 char txbuffer[64];
+extern float voltO2;
+extern float vRaw;
+extern float ch4p;
+extern float coppm;
+uint8_t WriteTransferFunc(char* p, const float* pO2V, const float* pData);
+extern float dataFloat[NUM_SENSOR_READINGS * 2];
 
 // simple state machine but transitions are sequentially made
 // this allows us to go to sleep between task handling
@@ -618,7 +628,7 @@ uint32_t continue_aducm355_measurement_seq(gas_sensor_results_t *gas_results, bo
             check_measuring_state();
             break;
         case MEASUREMENT_DONE:
-            NRF_LOG_INFO("Done Step %d", measurement_index);
+//            NRF_LOG_INFO("Done Step %d", measurement_index);
             sensing_state = PRIMED; // we are still in the primed state
             
             // copy to results struct
@@ -633,7 +643,7 @@ uint32_t continue_aducm355_measurement_seq(gas_sensor_results_t *gas_results, bo
 
 			{
 				if(!measurement_index) {
-					uint8_t nLen = sprintf(txbuffer, "\r\n%d,", TICKS_TO_MS(xTaskGetTickCount()));
+					uint8_t nLen = sprintf(txbuffer, "\r\n%d,", xTaskGetTickCount());
 					serial_tx(txbuffer, &nLen, UART_TX_PIN);
 				}
 //				int nRe = aducm355_result.Z_re * 10000.f;
@@ -660,11 +670,51 @@ uint32_t continue_aducm355_measurement_seq(gas_sensor_results_t *gas_results, bo
             // check if done
             if (measurement_index == measurement_num)
             {
+#if 0
+				//CH4% = a + b(S1) + c(S2) +d(S1)(S2) + e(S2)(S2)
+				static const float ch4[] = { 1.224810103f, -0.0002277977947f, 0.0005361092083f, -0.00000002753627f, 0.000000046664519f };
+				// CO[ppm] = a + b(S1) +c(S2) +d(S1)(S1) + e(S2)(S2) + f(S1)(S2)
+				static const float co[] = { 18841.26995f, 3.596598840f, 0.2460894735f, 0.0001564793f, -0.0000126792f, 0.0000519723f };
+
+//				float s1 = gas_results[4].Z_im, s2 = gas_results[24].Z_im;
+				float s1 = gas_results[2].Z_im, s2 = gas_results[5].Z_im;
+
+				/*float*/ ch4p = ch4[0] + ch4[1] * s1 + s2 * (ch4[2] + ch4[3] * s1 + ch4[4] * s2);
+				/*float*/ coppm = co[0] + s1 * (co[1] + co[3] * s1) + s2 * (co[2] + co[4] * s2) + s1 * s2 * co[5];
+
+				if(ch4p < 0.f) ch4p = 0.f;
+				if(coppm < 0.f) coppm = 0.f;
+
+				int32_t ch4w = ch4p, cow = coppm;
+//				uint32_t ch4f = (ch4w < 0 ? ch4w - ch4p : ch4p - ch4w) * 10000, cof = (cow < 0 ? cow - coppm : coppm - cow) * 10000;
+				uint32_t ch4f = (ch4p - ch4w) * 10000, cof = (coppm - cow) * 10000;
+
                 measurement_num = 0;
                 *measurement_done = true;
-
-				uint8_t nLen = sprintf(txbuffer, "%d,%d,%d,%d", latest_measurement_data.temperature, latest_measurement_data.pressure, latest_measurement_data.humidity,measurement_index);
+				uint8_t nLen = sprintf(txbuffer, "%d.%03d,%d.%03d,%d,%d,%d,%d.%03d,%d.%03d,%d", 
+						(int) voltO2, ((((int)(voltO2 * 10000)) % 10000) + 5) / 10, 
+						(int) vRaw, ((((int)(vRaw * 10000)) % 10000) + 5) / 10, 
+						latest_measurement_data.temperature, latest_measurement_data.pressure, latest_measurement_data.humidity,
+						ch4w, (ch4f + 5) / 10, cow, (cof + 5) / 10,
+						measurement_index);
 				serial_tx(txbuffer, &nLen, UART_TX_PIN);
+#else
+                measurement_num = 0;
+                *measurement_done = true;
+				uint8_t nLen = sprintf(txbuffer, "%d.%03d,%d.%03d,%d,%d,%d,", 
+						(int) voltO2, ((((int)(voltO2 * 10000)) % 10000) + 5) / 10, 
+						(int) vRaw, ((((int)(vRaw * 10000)) % 10000) + 5) / 10, 
+						latest_measurement_data.temperature, latest_measurement_data.pressure, latest_measurement_data.humidity);
+				serial_tx(txbuffer, &nLen, UART_TX_PIN);
+				for(int i = 0; i < NUM_SENSOR_READINGS; ++i) {
+					dataFloat[i*2] = gas_results[i].Z_re;
+					dataFloat[i*2+1] = gas_results[i].Z_im;
+				}
+				nLen = WriteTransferFunc(txbuffer, &voltO2, dataFloat);
+				serial_tx(txbuffer, &nLen, UART_TX_PIN);
+				nLen = sprintf(txbuffer, ",%d", measurement_index);
+				serial_tx(txbuffer, &nLen, UART_TX_PIN);
+#endif
             }
             break;
         default:
@@ -944,10 +994,16 @@ void vProcessInput(void* pvParameter) {
 		ulTaskNotifyTake(pdTRUE,         /* Clear the notification value before exiting (equivalent to the binary semaphore). */
                       portMAX_DELAY); //) /* Block indefinitely	*/
 		if(FindPacket(&packet)) {
+#ifdef DEBUG
+char c = '0' + packet.cmd;
+serial_tx2(&c, 1, UART_TX_PIN);
+serial_tx2(" packet\r\n", 9, UART_TX_PIN);
+#endif
 			switch(packet.cmd) {
 			case CMD_ACK:
-				ack_rcvd = true;
 				parse_aducm355_ack_payload((ack_payload *)&packet.payload);
+//				NRF_LOG_INFO("*** Ack Rcvd");
+				ack_rcvd = true;
 				break;
 			case CMD_SEND_DATA:
 				parse_aducm355_measure_data((data_payload *)&packet.payload);

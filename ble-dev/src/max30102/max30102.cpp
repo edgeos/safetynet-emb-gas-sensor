@@ -31,14 +31,13 @@ typedef mcl::CircularBuffer<std::int32_t,std::uint16_t> output_type;
 
 void DoHR(const nrf_drv_twi_t* pTWI, xSemaphoreHandle hMutex, ble_hrs_t* pHRS) {
 //	mcl::em::ti::cc::TwoWire* pTWI = reinterpret_cast<mcl::em::ti::cc::TwoWire*>(p);
-        xSemaphoreTake(hMutex,100);
+    if(pdFALSE == xSemaphoreTake(hMutex, portMAX_DELAY)) vTaskSuspend(NULL);
 	SpO2 spo2(pTWI);
-        if(!spo2.Init()) {
-          NRF_LOG_INFO("Did not find Max3010x on I2C bus");
-          xSemaphoreGive(hMutex);
-          vTaskSuspend(NULL);
-          vTaskDelete(NULL);
-        }
+	if(!spo2.Init()) {
+	  NRF_LOG_INFO("Did not find Max3010x on I2C bus");
+	  xSemaphoreGive(hMutex);
+	  vTaskSuspend(NULL);
+	}
 	std::uint32_t nPeriodMS = 500 / spo2.SampleRate();
 	// the reading number of the minimum before the current one
 	std::uint32_t nPrevMinimumIndex, nCurrentMimumIndex, nDiff, nSamplesPerMinute = spo2.SampleRate() * 60, nBelow = 0, nAbove = 0;

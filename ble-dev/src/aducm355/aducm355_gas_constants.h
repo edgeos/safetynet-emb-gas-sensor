@@ -13,6 +13,7 @@
 
 #define NUM_SENSOR_READINGS	40
 //#define NUM_SENSOR_READINGS	16
+//#define NUM_SENSOR_READINGS	6
 
 #if 0
 #define NUM_GAS_SENSORS      4
@@ -37,4 +38,7 @@ typedef struct
    
 //extern SensorSettings MeasureSettings[NUM_GAS_SENSORS*NUM_FREQS_PER_SENSOR];
 extern SensorSettings MeasureSettings[NUM_SENSOR_READINGS];
+
+void GetSetting(int n, int* pnSensor, int* pnFreq);
+
 #endif

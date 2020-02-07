@@ -23,6 +23,8 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
+#include "../../../common/SSD1306mono.h"
+
 #ifndef SCL_PIN
 #define SCL_PIN             NRF_GPIO_PIN_MAP(0,22)    // SCL signal pin
 #define SDA_PIN             NRF_GPIO_PIN_MAP(0,23)    // SDA signal pin
@@ -46,6 +48,7 @@ static volatile bool twi_enabled = false;
 // EEPROM current info
 static m24m02_info_t m24m02_info = {0};
 
+#if 0
 /**
  * @brief TWI events handler.
  */
@@ -64,6 +67,25 @@ static void twi_handler(nrf_drv_twi_evt_t const * p_event, void * p_context)
             break;
     }
 }
+#endif
+
+volatile uint8_t nI2CState = I2C_IDLE;
+
+static void twi_handler(nrf_drv_twi_evt_t const * p_event, void * p_context) {
+    switch (p_event->type) {
+    case NRF_DRV_TWI_EVT_DONE:
+		m_xfer_done1 = true;
+		nI2CState = I2C_IDLE;
+		return;
+	case NRF_DRV_TWI_EVT_ADDRESS_NACK:
+		nI2CState = I2C_ANACK;
+		return;
+	case NRF_DRV_TWI_EVT_DATA_NACK:
+		nI2CState = I2C_DNACK;
+		return;
+	}
+}
+
 
 static void twi_wait(void)
 {
@@ -96,6 +118,11 @@ static void twi_init(void)
     err_code = nrf_drv_twi_init(&m_twi, &twi_config, twi_handler, NULL);
     APP_ERROR_CHECK(err_code);
 
+/*
+*/
+//	nrf_gpio_cfg(SDA_PIN, NRF_GPIO_PIN_DIR_INPUT, NRF_GPIO_PIN_INPUT_CONNECT, NRF_GPIO_PIN_NOPULL, NRF_GPIO_PIN_D0S1, NRF_GPIO_PIN_NOSENSE);
+//	nrf_gpio_cfg(SCL_PIN, NRF_GPIO_PIN_DIR_INPUT, NRF_GPIO_PIN_INPUT_CONNECT, NRF_GPIO_PIN_NOPULL, NRF_GPIO_PIN_D0S1, NRF_GPIO_PIN_NOSENSE);
+
     nrf_drv_twi_enable(&m_twi);
 
     twi_enabled = true;
@@ -108,7 +135,7 @@ uint32_t twi_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *data, uint16_t len)
     /* Prepare for the read with a register write */
     uint8_t reg_read[2] = {reg_addr, 0};
     m_xfer_done1 = false; 
-
+	nI2CState = I2C_BUSY;
 while(NRF_ERROR_BUSY == (
     err_code = nrf_drv_twi_tx(&m_twi, dev_id, reg_read, 1, true) ));
     APP_ERROR_CHECK(err_code);
@@ -116,6 +143,7 @@ while(NRF_ERROR_BUSY == (
 
     /* Now read the register */
     m_xfer_done1 = false; 
+	nI2CState = I2C_BUSY;
     while(NRF_ERROR_BUSY == (
     err_code = nrf_drv_twi_rx(&m_twi, dev_id, data, len)));
     APP_ERROR_CHECK(err_code);
@@ -204,6 +232,7 @@ static void print_sensor_data(struct bme280_data *comp_data)
         //NRF_LOG_INFO("Temperature (C): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->temperature*0.01f));
         //NRF_LOG_INFO("Pressure (hPa): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->pressure/256.0f));
         //NRF_LOG_INFO("Humidity (%%RH): " NRF_LOG_FLOAT_MARKER, NRF_LOG_FLOAT(comp_data->humidity/1024.0f));
+//        NRF_LOG_INFO("Temp: %u, Humid: %d, Press: %u",comp_data->temperature, comp_data->humidity,comp_data->pressure);
 #endif
 }
 
@@ -219,12 +248,16 @@ static void sensor_bme280_init(void)
         if (bme280_init(&i2c_dev_bme280) == BME280_OK)
         {
             enabled_devices |= BME280;
+			return;
+        }
+		i2c_dev_bme280.dev_id = BME280_I2C_ADDR_PRIM;
+        if (bme280_init(&i2c_dev_bme280) == BME280_OK)
+        {
+            enabled_devices |= BME280;
+			return;
         }
     }
-    else
-    {
-        NRF_LOG_WARNING("BME280 not found! Skipping...");
-    }
+	NRF_LOG_WARNING("BME280 not found! Skipping...");
 }
 
 static int8_t bme280_stream_sensor_data_forced_mode(struct bme280_dev *dev, uint8_t * p_data, uint16_t * p_data_length)
@@ -245,6 +278,14 @@ static int8_t bme280_stream_sensor_data_forced_mode(struct bme280_dev *dev, uint
         dev->settings.osr_t = BME280_OVERSAMPLING_1X;
         dev->settings.filter = BME280_FILTER_COEFF_OFF;
         settings_sel = BME280_OSR_TEMP_SEL | BME280_OSR_HUM_SEL;
+//        rslt = bme280_set_sensor_settings(settings_sel, dev);
+
+// Corrected here 
+        dev->settings.osr_h = BME280_OVERSAMPLING_1X;
+        dev->settings.osr_p = BME280_OVERSAMPLING_4X;
+        dev->settings.osr_t = BME280_OVERSAMPLING_1X;
+        dev->settings.filter = BME280_FILTER_COEFF_4;
+        settings_sel = BME280_OSR_PRESS_SEL | BME280_OSR_TEMP_SEL | BME280_OSR_HUM_SEL | BME280_FILTER_SEL;
         rslt = bme280_set_sensor_settings(settings_sel, dev);
 
         /* Ping for sensor data */
@@ -308,7 +349,8 @@ static void eeprom_m24m02_init(void)
         if(scan_for_twi_device(M24M02_I2C_ADDR_SEC))
         {
             ret_code = eeprom_m24m02_check_data_validity();
-            APP_ERROR_CHECK(ret_code);
+			if(NRF_SUCCESS == ret_code)
+//            APP_ERROR_CHECK(ret_code);
             enabled_devices |= M24M02;
         }
     }
@@ -337,6 +379,7 @@ void ext_device_init(ext_device_type_t use_devices)
         {  
             eeprom_m24m02_init();
         }
+		InitDisp(&m_twi, &m_xfer_done1, &nI2CState);
     }
 }
 

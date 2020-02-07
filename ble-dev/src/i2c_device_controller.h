@@ -104,6 +104,8 @@ int8_t get_sensor_data_eeprom(bool * restart_read, bool * finished_read, m24m02_
 
 int8_t clear_sensor_data_eeprom(uint8_t * p_data, uint16_t * p_data_length);
 
+enum { I2C_IDLE, I2C_BUSY, I2C_ANACK, I2C_DNACK };
+
 #ifdef __cplusplus
 }
 #endif

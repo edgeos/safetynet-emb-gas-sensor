@@ -42,7 +42,11 @@ extern "C" {
    RCAL, external calibration resistor
    will be used in impedance calculation
 */
+#if 1
+#define AFE_RCAL  4990u                                 // Assume 4990ohms RCAL
+#else
 #define AFE_RCAL  200u                                 // Assume 200ohms RCAL
+#endif
 /*
    High power DAC update rate
    controlled by HSDACCON[8:1], rate = 16MHz/HSDACCON[8:1]
